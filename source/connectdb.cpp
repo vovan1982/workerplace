@@ -5,6 +5,8 @@ connectDB::connectDB(QWidget *parent) :
     QDialog(parent){
     setupUi(this);
 
+
+    // Устанавливаем предыдущие значения для подключения к БД
     QSettings settings( QApplication::applicationDirPath()+"/connection.ini", QSettings::IniFormat );
     dataBase->addItem(settings.value("Connection/DatabaseName","").toString());
     login->setText(settings.value("Connection/UserName","").toString());
