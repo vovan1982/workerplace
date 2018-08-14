@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>workerPlace</class>
+ <widget class="QMainWindow" name="workerPlace">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Учёт рабочих мест</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <property name="leftMargin">
+     <number>4</number>
+    </property>
+    <property name="topMargin">
+     <number>0</number>
+    </property>
+    <property name="rightMargin">
+     <number>4</number>
+    </property>
+    <property name="bottomMargin">
+     <number>0</number>
+    </property>
+    <item>
+     <widget class="QMdiArea" name="mdiArea">
+      <property name="font">
+       <font>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="verticalScrollBarPolicy">
+       <enum>Qt::ScrollBarAsNeeded</enum>
+      </property>
+      <property name="horizontalScrollBarPolicy">
+       <enum>Qt::ScrollBarAsNeeded</enum>
+      </property>
+      <property name="activationOrder">
+       <enum>QMdiArea::StackingOrder</enum>
+      </property>
+      <property name="viewMode">
+       <enum>QMdiArea::TabbedView</enum>
+      </property>
+      <property name="documentMode">
+       <bool>true</bool>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>800</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menu">
+    <property name="title">
+     <string>Меню</string>
+    </property>
+    <addaction name="exit"/>
+   </widget>
+   <widget class="QMenu" name="menu_2">
+    <property name="title">
+     <string>Данные</string>
+    </property>
+    <addaction name="actionWorkPlace"/>
+    <addaction name="actionUsers"/>
+    <addaction name="actionPoviders"/>
+    <addaction name="actionProducers"/>
+    <addaction name="actionDevice"/>
+    <addaction name="actionLicenses"/>
+    <addaction name="actionTypeDevice"/>
+    <addaction name="actionPo"/>
+    <addaction name="separator"/>
+    <addaction name="actionJournalHistoryMoved"/>
+    <addaction name="actionJournalHistoryUsersOnWP"/>
+    <addaction name="separator"/>
+    <addaction name="actionReferenceBookEdit"/>
+   </widget>
+   <widget class="QMenu" name="menu_3">
+    <property name="title">
+     <string>Отчёты</string>
+    </property>
+    <addaction name="actionOpenCuteReport"/>
+    <addaction name="actionInventoryReport"/>
+   </widget>
+   <widget class="QMenu" name="menu_4">
+    <property name="title">
+     <string>Импорт</string>
+    </property>
+    <addaction name="actionDeviceImport"/>
+    <addaction name="actionUserImport"/>
+   </widget>
+   <addaction name="menu"/>
+   <addaction name="menu_2"/>
+   <addaction name="menu_4"/>
+   <addaction name="menu_3"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QToolBar" name="toolBar">
+   <property name="windowTitle">
+    <string>Главная панель</string>
+   </property>
+   <attribute name="toolBarArea">
+    <enum>TopToolBarArea</enum>
+   </attribute>
+   <attribute name="toolBarBreak">
+    <bool>false</bool>
+   </attribute>
+   <addaction name="actionWorkPlace"/>
+   <addaction name="actionUsers"/>
+   <addaction name="actionPoviders"/>
+   <addaction name="actionProducers"/>
+   <addaction name="actionDevice"/>
+   <addaction name="actionLicenses"/>
+   <addaction name="actionTypeDevice"/>
+   <addaction name="actionPo"/>
+   <addaction name="separator"/>
+   <addaction name="actionJournalHistoryMoved"/>
+   <addaction name="actionJournalHistoryUsersOnWP"/>
+   <addaction name="separator"/>
+   <addaction name="actionDeviceImport"/>
+   <addaction name="actionUserImport"/>
+   <addaction name="separator"/>
+   <addaction name="actionOpenCuteReport"/>
+   <addaction name="separator"/>
+   <addaction name="actionReferenceBookEdit"/>
+  </widget>
+  <action name="exit">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/22x22/exit/ico/exit_22x22.png</normaloff>:/22x22/exit/ico/exit_22x22.png</iconset>
+   </property>
+   <property name="text">
+    <string>Выход</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+X</string>
+   </property>
+  </action>
+  <action name="actionWorkPlace">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/128x128/workgroup/ico/Workgroup.png</normaloff>:/128x128/workgroup/ico/Workgroup.png</iconset>
+   </property>
+   <property name="text">
+    <string>Рабочие места</string>
+   </property>
+  </action>
+  <action name="actionUsers">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/22x22/users/ico/userconfig_22x22.png</normaloff>:/22x22/users/ico/userconfig_22x22.png</iconset>
+   </property>
+   <property name="text">
+    <string>Пользователи</string>
+   </property>
+  </action>
+  <action name="actionReferenceBookEdit">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/22x22/book/ico/bookcase_22x22.png</normaloff>:/22x22/book/ico/bookcase_22x22.png</iconset>
+   </property>
+   <property name="text">
+    <string>Справочники</string>
+   </property>
+  </action>
+  <action name="actionPoviders">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/128x128/providers/ico/providers_128x128.png</normaloff>:/128x128/providers/ico/providers_128x128.png</iconset>
+   </property>
+   <property name="text">
+    <string>Поставщики</string>
+   </property>
+   <property name="toolTip">
+    <string>Поставщики</string>
+   </property>
+  </action>
+  <action name="actionInventoryReport">
+   <property name="text">
+    <string>Инвентаризация</string>
+   </property>
+   <property name="toolTip">
+    <string>Инвентаризация</string>
+   </property>
+  </action>
+  <action name="actionTypeDevice">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/22x22/hardware/ico/hardware_22x22.png</normaloff>:/22x22/hardware/ico/hardware_22x22.png</iconset>
+   </property>
+   <property name="text">
+    <string>Типы устройств</string>
+   </property>
+   <property name="toolTip">
+    <string>Типы устройств</string>
+   </property>
+  </action>
+  <action name="actionProducers">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/128x128/producers/ico/producers_128x128.png</normaloff>:/128x128/producers/ico/producers_128x128.png</iconset>
+   </property>
+   <property name="text">
+    <string>Производители</string>
+   </property>
+   <property name="toolTip">
+    <string>Производители</string>
+   </property>
+  </action>
+  <action name="actionPo">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/128x128/software/ico/software_128x128.png</normaloff>:/128x128/software/ico/software_128x128.png</iconset>
+   </property>
+   <property name="text">
+    <string>Программное Обеспечение</string>
+   </property>
+   <property name="toolTip">
+    <string>Программное Обеспечение</string>
+   </property>
+  </action>
+  <action name="actionLicenses">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/64x64/licence/ico/licence_64x64.png</normaloff>:/64x64/licence/ico/licence_64x64.png</iconset>
+   </property>
+   <property name="text">
+    <string>Лицензии</string>
+   </property>
+   <property name="toolTip">
+    <string>Лицензии</string>
+   </property>
+  </action>
+  <action name="actionDevice">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/22x22/computers/ico/computer_22x22.png</normaloff>:/22x22/computers/ico/computer_22x22.png</iconset>
+   </property>
+   <property name="text">
+    <string>Устройства</string>
+   </property>
+   <property name="toolTip">
+    <string>Устройства</string>
+   </property>
+  </action>
+  <action name="actionJournalHistoryMoved">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/32x32/journal/ico/journal_32x32.png</normaloff>:/32x32/journal/ico/journal_32x32.png</iconset>
+   </property>
+   <property name="text">
+    <string>Журнал истории перемещений</string>
+   </property>
+   <property name="toolTip">
+    <string>Журнал истории перемещений</string>
+   </property>
+  </action>
+  <action name="actionDeviceImport">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/32x32/import/ico/import_32x32.png</normaloff>:/32x32/import/ico/import_32x32.png</iconset>
+   </property>
+   <property name="text">
+    <string>Импорт устройств</string>
+   </property>
+   <property name="toolTip">
+    <string>Импорт устройств</string>
+   </property>
+  </action>
+  <action name="actionUserImport">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/48x48/import/ico/import_users_48х48.png</normaloff>:/48x48/import/ico/import_users_48х48.png</iconset>
+   </property>
+   <property name="text">
+    <string>Импорт пользователей</string>
+   </property>
+   <property name="toolTip">
+    <string>Импорт пользователей</string>
+   </property>
+  </action>
+  <action name="actionJournalHistoryUsersOnWP">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/128x128/journal/ico/journal_128x128.png</normaloff>:/128x128/journal/ico/journal_128x128.png</iconset>
+   </property>
+   <property name="text">
+    <string>Журнал прихода\ухода пользователей</string>
+   </property>
+   <property name="toolTip">
+    <string>Журнал приходаухода пользователей</string>
+   </property>
+  </action>
+  <action name="actionOpenCuteReport">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/CuteReport/ico/cutereport_logo_64x64.ico</normaloff>:/CuteReport/ico/cutereport_logo_64x64.ico</iconset>
+   </property>
+   <property name="text">
+    <string>Открыть отчёт CuteReport</string>
+   </property>
+  </action>
+ </widget>
+ <resources>
+  <include location="../icons.qrc"/>
+ </resources>
+ <connections/>
+</ui>

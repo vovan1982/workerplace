@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<users>
+	<organization name="НазваниеОрганизации">
+		<user lastname="Фамилия" firstname="Имя" middlename="Отчество" displayname="Отображаемое имя" post="Должность" email="Эл.адрес" additionalemail="Дополнительный Эл.адрес" login="Логин входа в систему"/>
+	</organization>
+</users>
