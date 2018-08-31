@@ -77,6 +77,8 @@ WorkPlace::WorkPlace(QWidget *parent) :
     connect(treeViewDepartments, SIGNAL(doubleClicked(QModelIndex)),this, SLOT(doubleClickedDepView(QModelIndex)));
     connect(treeViewDepartments->selectionModel(),SIGNAL(currentRowChanged(QModelIndex,QModelIndex)),this,SLOT(updateWPModel(QModelIndex)));
     connect( (QObject*) treeViewWorkPlace->header(), SIGNAL (sectionClicked (int)), this, SLOT(sortWPClick()));
+
+    splitter->setStretchFactor(1,1);
 }
 void WorkPlace::onWPMenu(const QPoint &p){
    menu2->exec(treeViewWorkPlace->viewport()->mapToGlobal(p));
