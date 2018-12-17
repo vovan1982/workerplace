@@ -1,0 +1,28 @@
+#ifndef CUTEREPORT_INCLUDES_H 
+#define CUTEREPORT_INCLUDES_H 
+
+#include "abstractpainterdelegate.h"
+#include "bandinterface.h"
+#include "baseiteminterface.h"
+#include "cutereport_functions.h"
+#include "cutereport_globals.h"
+#include "cutereport_types.h"
+#include "datasetinterface.h"
+#include "exportinterface.h"
+#include "forminterface.h"
+#include "iteminterface.h"
+#include "pageinterface.h"
+#include "printerinterface.h"
+#include "rendererinterface.h"
+#include "reportcore.h"
+#include "reportinterface.h"
+#include "reportplugininterface.h"
+#include "reportpreview.h"
+#include "scriptdelegate.h"
+#include "scriptextensioninterface.h"
+#include "serializerinterface.h"
+#include "stdstoragedialog.h"
+#include "storageinterface.h"
+#include "widgets_export.h"
+
+#endif

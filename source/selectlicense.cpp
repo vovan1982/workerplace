@@ -4,12 +4,12 @@
 #include "headers/filterlicense.h"
 #include "headers/licensemodelcontrol.h"
 
-SelectLicense::SelectLicense(QWidget *parent, const QString &filter, bool multiselections, bool locationIsSet, int wpId) :
+SelectLicense::SelectLicense(QWidget *parent, const QString &filter, bool multiselections, QMap<int,QString> organizations, int curOrgId) :
     QDialog(parent),
     m_filter(filter),
     m_multiselections(multiselections),
-    m_locationIsSet(locationIsSet),
-    m_wpId(wpId)
+    m_organizations(organizations),
+    m_curOrgId(curOrgId)
 {
     setupUi(this);
     filterIsSet = false;
@@ -21,6 +21,7 @@ SelectLicense::SelectLicense(QWidget *parent, const QString &filter, bool multis
 
     connect(licenseView->selectionModel(), SIGNAL(currentRowChanged(QModelIndex,QModelIndex)),
             this, SLOT(setAccessToActions(QModelIndex)));
+    connect(licenseView,SIGNAL(doubleClicked(QModelIndex)),this,SLOT(on_selectButton_clicked()));
     if(lModel->model()->rowCount() == 0){
         selectButton->setEnabled(false);
         setFilterButton->setEnabled(false);
@@ -49,7 +50,7 @@ void SelectLicense::updateLicenseModel()
         lModel->setCurrentIndexFirstRow();
     setAccessToActions(licenseView->currentIndex());
     if(showParentDevice->isChecked())
-        licenseView->expandAll();
+        licenseView->collapseAll();
 }
 
 void SelectLicense::on_showParentDevice_clicked(bool checked)
@@ -61,13 +62,14 @@ void SelectLicense::on_showParentDevice_clicked(bool checked)
 
 void SelectLicense::setAccessToActions(const QModelIndex &index)
 {
+    QModelIndex curModelIndex = lModel->realModelIndex(index);
     if(lModel->model()->rowCount() == 0 && (licenseFilter.isEmpty() || licenseFilter.isNull())){
         selectButton->setEnabled(false);
         setFilterButton->setEnabled(false);
         clearFilterButton->setEnabled(false);
     }else{
-        if(index.isValid()){
-            if(lModel->model()->index(index.row(),lModel->model()->cIndex.isLicense,index.parent()).data().toInt() == 1){
+        if(curModelIndex.isValid()){
+            if(lModel->model()->index(curModelIndex.row(),lModel->model()->cIndex.isLicense,curModelIndex.parent()).data().toInt() == 1){
                 selectButton->setEnabled(true);
             }else{
                 selectButton->setEnabled(false);
@@ -82,9 +84,14 @@ void SelectLicense::setAccessToActions(const QModelIndex &index)
 void SelectLicense::on_selectButton_clicked()
 {
     QList<QVariant> license;
+    QModelIndex curIndex = lModel->realModelIndex(licenseView->currentIndex());
     lockSelected = false;
+
+    if(lModel->model()->index(curIndex.row(),lModel->model()->cIndex.isLicense,curIndex.parent()).data().toInt() != 1)
+        return;
+
     for(int i = 0;i<lModel->model()->columnCount();i++){
-        license<<lModel->model()->data(lModel->model()->index(licenseView->currentIndex().row(),i,licenseView->currentIndex().parent()));
+        license<<lModel->model()->data(lModel->model()->index(curIndex.row(),i,curIndex.parent()));
     }
     if(!m_multiselections){
         emit selectedLicense(license);
@@ -93,8 +100,7 @@ void SelectLicense::on_selectButton_clicked()
     }else{
         emit selectedLicense(license);
         if(lockSelected) return;
-        QModelIndex curIndex = licenseView->currentIndex();
-        QModelIndex curParentIndex = licenseView->currentIndex().parent();
+        QModelIndex curParentIndex = curIndex.parent();
         lModel->model()->removeRow(curIndex.row(),curIndex.parent());
         curIndex = curParentIndex;
         if(curIndex != QModelIndex())
@@ -127,7 +133,7 @@ void SelectLicense::on_selectButton_clicked()
 
 void SelectLicense::on_setFilterButton_clicked()
 {
-    FilterLicense *fl = new FilterLicense(this,m_locationIsSet,m_wpId);
+    FilterLicense *fl = new FilterLicense(this,m_organizations,m_curOrgId);
     connect(fl,SIGNAL(setFilter(QString)),SLOT(setFilter(QString)));
     fl->exec();
 }

@@ -15,8 +15,8 @@
 #include "headers/journalhistorymoved.h"
 #include "headers/lockdatabase.h"
 
-Device::Device(QWidget *parent, bool wpMode, int wpId, int wpFirmId, bool whMode, bool readOnly) :
-    QWidget(parent), m_wpMode(wpMode), m_wpId(wpId), m_wpFirmId(wpFirmId), m_whMode(whMode), m_readOnly(readOnly)
+Device::Device(QWidget *parent, bool wpMode, int wpId, int wpFirmId, bool readOnly) :
+    QWidget(parent), m_wpMode(wpMode), m_wpId(wpId), m_wpFirmId(wpFirmId), m_readOnly(readOnly)
 {
     setupUi(this);
     if(m_readOnly) setWindowTitle(windowTitle()+tr(" - [Только чттение]"));
@@ -31,10 +31,6 @@ Device::Device(QWidget *parent, bool wpMode, int wpId, int wpFirmId, bool whMode
         groupBox_4->setVisible(false);
         buttonClose->setVisible(false);
         horizontalLayout_3->removeItem(horizontalSpacer);
-        if(!whMode){
-            buttonDeviceFilter->setVisible(false);
-            buttonClearDeviceFilter->setVisible(false);
-        }
         ag->addAction(actionAddDevice);
         wpDeviceFilter = QString("dev.id IN (SELECT id FROM device WHERE CodWorkerPlace = %1)")
                          .arg(wpId);
@@ -61,10 +57,7 @@ Device::Device(QWidget *parent, bool wpMode, int wpId, int wpFirmId, bool whMode
     if(!wpMode)
         devModel = new DeviceModelControl(deviceView,deviceView,"default",db,wpDeviceFilter,false);
     else{
-        if(whMode)
-            devModel = new DeviceModelControl(deviceView,deviceView,"wareHouse",db,wpDeviceFilter,false);
-        else
-            devModel = new DeviceModelControl(deviceView,deviceView,"workPlace",db,wpDeviceFilter,false);
+        devModel = new DeviceModelControl(deviceView,deviceView,"workPlace",db,wpDeviceFilter,false);
     }
     connect(devModel,SIGNAL(dataIsPopulated()),this,SLOT(dataIsLoaded()));
     connect(devModel,SIGNAL(devModelUpdated()),this,SIGNAL(devModelUpdated()));
@@ -139,7 +132,7 @@ void Device::onDevMenu(const QPoint &p){
 }
 void Device::doubleClickedDeviceView(const QModelIndex &index){
     QModelIndex curViewIndex = devModel->realModelIndex(index);
-    if(devModel->model()->rowCount(devModel->model()->index(curViewIndex.row(),0,curViewIndex.parent())) <= 0)
+    if(devModel->model()->rowCount(devModel->model()->index(curViewIndex.row(),0,curViewIndex.parent())) <= 0 || curViewIndex.column() > 0)
         on_actionEditDevice_triggered();
 }
 void Device::convertIndexForUpdateWp(const QModelIndex &index)
@@ -256,10 +249,9 @@ void Device::insertNewRowOfDB(int id)
                                 devModel->model()->cIndex.type,
                                 curViewIndex.parent())
             .data().toInt() == 1)
-        parent = curViewIndex;
+        parent = devModel->model()->index(curViewIndex.row(),0,curViewIndex.parent());
     else
         parent = curViewIndex.parent();
-
     devModel->model()->insertRow(devModel->model()->rowCount(parent),parent);
     curIndex = devModel->model()->index(devModel->model()->rowCount(parent)-1,0,parent);
     devModel->model()->setDataWithOutSQL(devModel->model()->index(curIndex.row(),devModel->model()->cIndex.id,curIndex.parent()),id);
@@ -613,11 +605,14 @@ void Device::on_actionEditDevice_triggered()
 
     QSqlQuery query;
     bool ok;
-    ok = query.exec(QString("SELECT %1, %2, %3, %4 FROM %5 WHERE %6 = %7")
+    ok = query.exec(QString("SELECT %4.%1, %4.%2, typedevice.Type, %4.%3 FROM %5 %4 "
+                            "LEFT OUTER JOIN typedevice "
+                            "ON %4.CodTypeDevice = typedevice.CodTypeDevice "
+                            "WHERE %4.%6 = %7")
                     .arg(devModel->model()->colTabName.rv)
                     .arg(devModel->model()->colTabName.parent_id)
-                    .arg(devModel->model()->colTabName.type)
                     .arg(devModel->model()->colTabName.codWorkerPlace)
+                    .arg(devModel->model()->aliasModelTable())
                     .arg(devModel->model()->nameModelTable())
                     .arg(devModel->model()->colTabName.id)
                     .arg(devModel->model()->data(devModel->model()->index(curViewIndex.row(),
@@ -716,8 +711,8 @@ void Device::on_buttonMove_clicked()
 void Device::on_buttonDeviceFilter_clicked()
 {
     FilterDevice *f;
-    if(m_wpMode || m_whMode)
-        f = new FilterDevice(this,true,false,false);
+    if(m_wpMode)
+        f = new FilterDevice(this,true);
     else
         f = new FilterDevice(this);
     connect(f,SIGNAL(setFilter(QString)),this,SLOT(setDeviceFilter(QString)));
@@ -766,6 +761,8 @@ QString Device::readDataModel(const QModelIndex &index){
         str += "\t";
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.typeDevName,index.parent()).data().toString() + "\t";
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.name,index.parent()).data().toString() + "\t";
+    str += devModel->model()->index(index.row(),devModel->model()->cIndex.networkName,index.parent()).data().toString() + "\t";
+    str += devModel->model()->index(index.row(),devModel->model()->cIndex.domainWgName,index.parent()).data().toString() + "\t";
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.inventoryN,index.parent()).data().toString() + "\t";
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.serialN,index.parent()).data().toString() + "\t";
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.producerName,index.parent()).data().toString() + "\t";
@@ -776,6 +773,7 @@ QString Device::readDataModel(const QModelIndex &index){
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.price,index.parent()).data().toString() + "\t";
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.stateName,index.parent()).data().toString() + "\t";
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.note,index.parent()).data().toString() + "\t";
+    str += devModel->model()->index(index.row(),devModel->model()->cIndex.detailDescription,index.parent()).data().toString() + "\t";
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.id,index.parent()).data().toString() + "\t";
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.parent_id,index.parent()).data().toString() + "\n";
     return str;
@@ -794,6 +792,8 @@ void Device::on_actionCopyDeviceInBufer_triggered()
     str += tr("Пользователь") + "\t";
     str += tr("Тип устройства") + "\t";
     str += tr("Наименование") + "\t";
+    str += tr("Сетевое имя") + "\t";
+    str += tr("Домен/Рабочая группа") + "\t";
     str += tr("Инветарный №") + "\t";
     str += tr("Серийный №") + "\t";
     str += tr("Производитель") + "\t";
@@ -803,7 +803,8 @@ void Device::on_actionCopyDeviceInBufer_triggered()
     str += tr("Конец гарантии") + "\t";
     str += tr("Цена") + "\t";
     str += tr("Состояние") + "\t";
-    str += tr("Примечание") + "\n";
+    str += tr("Примечание") + "\t";
+    str += tr("Детальное описание") + "\n";
     // данные
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.orgName,index.parent()).data().toString() + "\t";
     if(!m_wpMode){
@@ -851,6 +852,8 @@ void Device::on_actionCopyDeviceInBufer_triggered()
     }
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.typeDevName,index.parent()).data().toString() + "\t";
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.name,index.parent()).data().toString() + "\t";
+    str += devModel->model()->index(index.row(),devModel->model()->cIndex.networkName,index.parent()).data().toString() + "\t";
+    str += devModel->model()->index(index.row(),devModel->model()->cIndex.domainWgName,index.parent()).data().toString() + "\t";
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.inventoryN,index.parent()).data().toString() + "\t";
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.serialN,index.parent()).data().toString() + "\t";
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.producerName,index.parent()).data().toString() + "\t";
@@ -860,7 +863,8 @@ void Device::on_actionCopyDeviceInBufer_triggered()
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.endGuarantee,index.parent()).data().toString() + "\t";
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.price,index.parent()).data().toString() + "\t";
     str += devModel->model()->index(index.row(),devModel->model()->cIndex.stateName,index.parent()).data().toString() + "\t";
-    str += devModel->model()->index(index.row(),devModel->model()->cIndex.note,index.parent()).data().toString();
+    str += devModel->model()->index(index.row(),devModel->model()->cIndex.note,index.parent()).data().toString() + "\t";
+    str += devModel->model()->index(index.row(),devModel->model()->cIndex.detailDescription,index.parent()).data().toString();
     QApplication::clipboard()->setText(str);
     QMessageBox::information(this, tr("Копирование"),tr("Данные скопированны в буфер обмена."),tr("Закрыть"));
 }
@@ -877,6 +881,8 @@ void Device::on_buttonCopyAllInBufer_clicked()
     str += tr("Пользователь") + "\t";
     str += tr("Тип устройства") + "\t";
     str += tr("Наименование") + "\t";
+    str += tr("Сетевое имя") + "\t";
+    str += tr("Домен/Рабочая группа") + "\t";
     str += tr("Инветарный №") + "\t";
     str += tr("Серийный №") + "\t";
     str += tr("Производитель") + "\t";
@@ -887,6 +893,7 @@ void Device::on_buttonCopyAllInBufer_clicked()
     str += tr("Цена") + "\t";
     str += tr("Состояние") + "\t";
     str += tr("Примечание") + "\t";
+    str += tr("Детальное описание") + "\t";
     str += tr("Код") + "\t";
     str += tr("Код родителя") + "\n";
     // данные

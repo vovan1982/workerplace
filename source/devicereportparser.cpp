@@ -22,7 +22,7 @@ DeviceReportParser::DeviceReportParser(const QList<QString> attr, const QMap<QSt
      m_producerMode = false;
      importMode = true;
 
-     attrValuesList = attr; // 0 - id фирмы, 1 - код состояния устройств, 2 - код состояния лицензий
+     attrValuesList = attr; // 0 - id организации, 1 - код состояния устройств, 2 - код состояния лицензий
      m_comparisonWP = comparisonWP;
      m_comparisonTypeDev = comparisonTypeDev;
      m_comparisonTypeLic = comparisonTypeLic;
@@ -79,9 +79,9 @@ bool DeviceReportParser::startElement(const QString&,
         if(teg == "workplase")
             curWp = m_comparisonWP.value(attrs.value("name")).toInt();
         if(teg == "device"){
-            field = "(parent_id, CodOrganization, CodWorkerPlace, CodTypeDevice, Name, CodState, Type";
+            field = "(parent_id, CodOrganization, CodWorkerPlace, CodTypeDevice, Name, CodState";
             val = "(0,"+attrValuesList.value(0)+","+QString("%1").arg(curWp)+","+m_comparisonTypeDev.value(attrs.value("type")).toString();
-            val += ",\""+attrs.value("name")+"\","+attrValuesList.value(1)+",1";
+            val += ",\""+attrs.value("name")+"\","+attrValuesList.value(1);
             if(!m_comparisonProducer.isEmpty()){
                 if(!attrs.value("producer").isNull() && !attrs.value("producer").isEmpty()){
                     field += ",CodProducer";
@@ -108,9 +108,9 @@ bool DeviceReportParser::startElement(const QString&,
             curDev = query.lastInsertId().toInt();
         }
         if(teg == "subdevice"){
-            field = "(parent_id, CodOrganization, CodWorkerPlace, CodTypeDevice, Name, CodState, Type";
+            field = "(parent_id, CodOrganization, CodWorkerPlace, CodTypeDevice, Name, CodState";
             val = "("+QString("%1").arg(curDev)+","+attrValuesList.value(0)+","+QString("%1").arg(curWp)+","+m_comparisonTypeDev.value(attrs.value("type")).toString();
-            val += ",\""+attrs.value("name")+"\","+attrValuesList.value(1)+",0";
+            val += ",\""+attrs.value("name")+"\","+attrValuesList.value(1);
             if(!m_comparisonProducer.isEmpty()){
                 if(!attrs.value("producer").isNull() && !attrs.value("producer").isEmpty()){
                     field += ",CodProducer";
@@ -162,13 +162,21 @@ bool DeviceReportParser::startElement(const QString&,
                 query.next();
                 codPo = query.value(0).toInt();
             }
-            field = "(CodDevice,CodWorkerPlace,CodPO,CodTypeLicense,CodStatePO)";
-            val = "("+QString("%1").arg(curDev)+","+QString("%1").arg(curWp)+","+QString("%1").arg(codPo);
+            field = "(CodOrganization,CodPO,CodTypeLicense,CodStatePO)";
+            val = "("+attrValuesList.value(0)+","+QString("%1").arg(codPo);
             val += ","+m_comparisonTypeLic.value(attrs.value("name")).toString()+","+attrValuesList.value(2);
             val += ")";
             queryStr = "INSERT INTO licenses "+field+" VALUES "+val;
             ok = query.exec(queryStr);
             if(!ok) {errorStr = query.lastError().text(); return false;}
+            else{
+                if(curDev != 0){
+                    int lastId = query.lastInsertId().toInt();
+                    ok = query.exec(QString("INSERT INTO licenseanddevice (CodDevice,CodLicense) VALUES (%1,%2)")
+                                    .arg(curDev).arg(lastId));
+                    if(!ok) {errorStr = query.lastError().text(); return false;}
+                }
+            }
         }
     }
     return true;

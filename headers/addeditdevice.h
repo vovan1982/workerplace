@@ -3,9 +3,11 @@
 
 #include <QList>
 #include <QSqlDatabase>
+#include <QSqlTableModel>
 #include "ui_addeditdevice.h"
 
 class DeviceModel;
+class LicenseTableModel;
 
 class AddEditDevice : public QDialog, private Ui::AddEditDevice {
     Q_OBJECT
@@ -24,6 +26,11 @@ private:
     bool m_readOnly;
     QTimer* timer;
     DeviceModel *dm;
+    QWidget *networkTab, *licenseTab;
+    QSqlTableModel *interfaceModel;
+    LicenseTableModel *lm;
+    bool interfaceIsChanged, licenseIsChanged;
+    QList<QVariant> licenseIdToUntie;
     void clearForm();
     bool dataEntered();
     bool formIsEmpty();
@@ -31,6 +38,7 @@ private:
     bool compareDate(QCheckBox *dateCheck, QDateEdit *dateEdit, QDate defDate);
     bool providerIsChanged();
     bool producerIsChanged();
+    bool domainWgIsChanged();
     void populateCBox(const QString &idName, const QString &tableName,
                       const QString &filter, const QString &nullStr, QComboBox *cBox);
     void setDefaultEditData();
@@ -43,6 +51,13 @@ signals:
     void deviceAdded(int newId, int parentId);
     void deviceDataChanged();
 private slots:
+    void setWorkPlase(int wpId, const QString &wpName);
+    void setOrgTex(const QList<QVariant> &orgTexData);
+    void updateLockRecord();
+    void onInterfaceMenu(const QPoint &p);
+    void onLicenseMenu(const QPoint &p);
+    void insertLicenseRow(const QList<QVariant> &licRow);
+    void updateLicenseCurrentRow(const QList<QVariant> &licRow);
     void on_orgTex_runButtonClicked();
     void on_orgTex_clearButtonClicked();
     void on_workPlace_textChanged();
@@ -59,19 +74,34 @@ private slots:
     void on_checkBoxDate2_clicked(bool check);
     void on_checkBoxDate3_clicked(bool check);
     void on_note_textChanged();
+    void on_detailDescription_textChanged();
     void on_price_valueChanged(double);
     void on_serialN_textChanged();
     void on_inventoryN_textChanged();
     void on_buttonCancel_clicked();
     void on_name_textChanged();
+    void on_networkName_textChanged();
+    void on_domainWg_currentIndexChanged(int);
     void on_typeDevice_currentIndexChanged(int);
     void on_state_currentIndexChanged(int);
     void on_buttonEditState_clicked();
-    void setWorkPlase(int wpId, const QString &wpName);
-    void setOrgTex(const QList<QVariant> &orgTexData);
+    void on_buttonEditDomainWg_clicked();
     void on_buttonEditProducer_clicked();
-    void updateLockRecord();
     void on_buttonClose_clicked();
+    void on_buttonAddInterface_clicked();
+    void on_buttonChangeInterface_clicked();
+    void on_buttonDelInterface_clicked();
+    void on_actionAddInterface_triggered();
+    void on_actionChangeInterface_triggered();
+    void on_actionDelInterface_triggered();
+    void on_addNewLicenseButton_clicked();
+    void on_changeLicenseButton_clicked();
+    void on_selectLicenseButton_clicked();
+    void on_deleteLicenseButton_clicked();
+    void on_actionAddNewLicense_triggered();
+    void on_actionSelectlicense_triggered();
+    void on_actionEditLicense_triggered();
+    void on_actionDelLicense_triggered();
 };
 
 #endif // ADDEDITDEVICE_H

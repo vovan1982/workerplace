@@ -1,24 +1,21 @@
-#include <QSqlError>
 #include <QDir>
-#include "headers/licensemodel.h"
+#include <QSqlError>
 #include "headers/treeitem.h"
+#include "headers/licensemodel.h"
 
 LicenseModel::LicenseModel(QObject *parent) : QAbstractItemModel(parent) {
     filter = "";
     showParent = false;
-    parentDevId = "";
     tabName = "licenses";
     aliasTable = "l";
     primaryQuery = QString("SELECT po.Name AS NamePO, "
                            "%2.`key`, "
-                           "-%2.CodDevice AS CodDevice, "
                            "%2.CodPO, "
-                           "%2.CodWorkerPlace, "
+                           "%2.CodOrganization, "
                            "%2.CodTypeLicense, "
                            "%2.CodStatePO, "
+                           "departments.Name AS NameOrg, "
                            "producer.Name AS NameProd, "
-                           "device.Name AS NameDevice, "
-                           "workerplace.Name AS NameWP, "
                            "%2.RegName, "
                            "%2.RegKey, "
                            "%2.RegMail, "
@@ -41,10 +38,8 @@ LicenseModel::LicenseModel(QObject *parent) : QAbstractItemModel(parent) {
                            "ON %2.CodStatePO = statepo.CodStatePO "
                            "INNER JOIN po "
                            "ON %2.CodPO = po.CodPO "
-                           "INNER JOIN workerplace "
-                           "ON %2.CodWorkerPlace = workerplace.CodWorkerPlace "
-                           "LEFT OUTER JOIN device "
-                           "ON %2.CodDevice = device.id "
+                           "LEFT OUTER JOIN departments "
+                           "ON %2.CodOrganization = departments.id "
                            "LEFT OUTER JOIN producer "
                            "ON po.CodProducer = producer.CodProducer ").arg(tabName).arg(aliasTable);
     rootData << "NamePO";
@@ -52,71 +47,66 @@ LicenseModel::LicenseModel(QObject *parent) : QAbstractItemModel(parent) {
     rootData << "key";
     cIndex.key = 1;
     colTabName.key = "key";
-    rootData << "CodDevice";
-    cIndex.codDevice = 2;
-    colTabName.codDevice = "CodDevice";
     rootData << "CodPO";
-    cIndex.codPO = 3;
+    cIndex.codPO = 2;
     colTabName.codPO = "CodPO";
-    rootData << "CodWorkerPlace";
-    cIndex.codWorkerPlace = 4;
-    colTabName.codWorkerPlace = "CodWorkerPlace";
+    rootData << "CodOrganization";
+    cIndex.codOrganization = 3;
+    colTabName.codOrganization = "CodOrganization";
     rootData << "CodTypeLicense";
-    cIndex.codTypeLicense = 5;
+    cIndex.codTypeLicense = 4;
     colTabName.codTypeLicense = "CodTypeLicense";
     rootData << "CodStatePO";
-    cIndex.codStatePO = 6;
+    cIndex.codStatePO = 5;
     colTabName.codStatePO = "CodStatePO";
+    rootData << "NameOrg";
+    cIndex.nameOrg = 6;
     rootData << "NameProd";
     cIndex.nameProd = 7;
-    rootData << "NameDevice";
-    cIndex.nameDevice = 8;
-    rootData << "NameWP";
-    cIndex.nameWP = 9;
     rootData << "RegName";
-    cIndex.regName = 10;
+    cIndex.regName = 8;
     colTabName.regName = "RegName";
     rootData << "RegKey";
-    cIndex.regKey = 11;
+    cIndex.regKey = 9;
     colTabName.regKey = "RegKey";
     rootData << "RegMail";
-    cIndex.regMail = 12;
+    cIndex.regMail = 10;
     colTabName.regMail = "RegMail";
     rootData << "KolLicense";
-    cIndex.kolLicense = 13;
+    cIndex.kolLicense = 11;
     colTabName.kolLicense = "KolLicense";
     rootData << "InvN";
-    cIndex.invN = 14;
+    cIndex.invN = 12;
     colTabName.invN = "InvN";
     rootData << "VersionN";
-    cIndex.versionN = 15;
+    cIndex.versionN = 13;
     colTabName.versionN = "VersionN";
     rootData << "CodProvider";
-    cIndex.codProvider = 16;
+    cIndex.codProvider = 14;
     colTabName.codProvider = "CodProvider";
     rootData << "DatePurchase";
-    cIndex.datePurchase = 17;
+    cIndex.datePurchase = 15;
     colTabName.datePurchase = "DatePurchase";
     rootData << "DateEndLicense";
-    cIndex.dateEndLicense = 18;
+    cIndex.dateEndLicense = 16;
     colTabName.dateEndLicense = "DateEndLicense";
     rootData << "Price";
-    cIndex.price = 19;
+    cIndex.price = 17;
     colTabName.price = "Price";
     rootData << "NameLic";
-    cIndex.nameLic = 20;
+    cIndex.nameLic = 18;
     rootData << "NameState";
-    cIndex.nameState = 21;
+    cIndex.nameState = 19;
     rootData << "Note";
-    cIndex.note = 22;
+    cIndex.note = 20;
     colTabName.note = "Note";
     rootData << "Ico";
-    cIndex.ico = 23;
+    cIndex.ico = 21;
     rootData << "RV";
-    cIndex.rv = 24;
+    cIndex.rv = 22;
     colTabName.rv = "RV";
     rootData << "isLicense";
-    cIndex.isLicense = 25;
+    cIndex.isLicense = 23;
     rootItemData = new TreeItem(rootData);
 }
 LicenseModel::~LicenseModel(){
@@ -354,7 +344,7 @@ bool LicenseModel::updateRow(int row, const QModelIndex &parent)
         emit dataChanged(parent.child(row,0), parent.child(row,0));
     return ok;
 }
-bool LicenseModel::sqlInsertRow(int row, int codWorkerPlace, int codPO, int codTypeLicense, int codStatePO,
+bool LicenseModel::sqlInsertRow(int row, int codOrganization, int codPO, int codTypeLicense, int codStatePO,
                            QMap<QString, QVariant> colValue, const QModelIndex &parent)
 {
     bool ok;
@@ -365,8 +355,8 @@ bool LicenseModel::sqlInsertRow(int row, int codWorkerPlace, int codPO, int codT
     TreeItem *parentItem = itemDataFromIndex(parent);
 
     field = "("; val = "(";
-    field += "CodWorkerPlace,CodPO,CodTypeLicense,CodStatePO"; val += "?,?,?,?";
-    bindval.enqueue(codWorkerPlace);
+    field += "CodOrganization,CodPO,CodTypeLicense,CodStatePO"; val += "?,?,?,?";
+    bindval.enqueue(codOrganization);
     bindval.enqueue(codPO);
     bindval.enqueue(codTypeLicense);
     bindval.enqueue(codStatePO);
@@ -544,129 +534,51 @@ TreeItem* LicenseModel::InitTree(){
 
     all = new TreeItem(rootData);
     if(query.size()>0){
-        if (!showParent){
-            while(query.next())
-            {
-                int i;
-                all->insertChildren(all->childCount(),1,all->columnCount());
-                for(i = 0;i<query.record().count();i++)
-                    all->child(all->childCount()-1)->setData(i,query.value(i));
-                all->child(all->childCount()-1)->setData(i,1);
-            }
-        }else{
-            if (parentDevId.isEmpty()){
-                lastErr.setDatabaseText("No code device");
-                lastErr.setType(QSqlError::UnknownError);
-                return all;
-            }
-            QSqlQuery queryParent, minParentQuery;
-            TreeItem *note;
-            QList<QVariant> buffer;
-            int f = 0, n = 0;
-            int minParent = 0;
-            if(filter.isEmpty()){
-                queryParent.exec(QString("SELECT device.name, -id, -parent_id, typedevice.IconPath, device.type, device.InventoryN FROM device "
-                                         "INNER JOIN typedevice ON device.CodTypeDevice = typedevice.CodTypeDevice "
-                                         "WHERE id IN "
-                                         "(SELECT p.id FROM device n, devtree t, device p "
-                                         "WHERE  n.id IN %1 AND n.id = t.id AND t.parent_id = p.id) "
-                                         "ORDER BY device.type DESC;").arg(parentDevId));
-                minParentQuery.exec(QString("SELECT MAX(-parent_id) FROM device WHERE id IN "
-                                            "(SELECT p.id FROM device n, devtree t, device p "
-                                            "WHERE  n.id IN %1 AND n.id = t.id AND t.parent_id = p.id)")
-                                    .arg(parentDevId));
-            }else{
-                queryParent.exec(QString("SELECT device.name, -id, -parent_id, typedevice.IconPath, device.type, device.InventoryN FROM device "
-                                         "INNER JOIN typedevice ON device.CodTypeDevice = typedevice.CodTypeDevice "
-                                         "WHERE id IN "
-                                         "(SELECT p.id FROM device n, devtree t, device p "
-                                         "WHERE  n.id IN %1 AND n.id = t.id AND t.parent_id = p.id) "
-                                         "ORDER BY device.type DESC;").arg(parentDevId));
-                minParentQuery.exec(QString("SELECT MAX(-parent_id) FROM device WHERE id IN "
-                                            "(SELECT p.id FROM device n, devtree t, device p "
-                                            "WHERE  n.id IN %1 AND n.id = t.id AND t.parent_id = p.id)")
-                                    .arg(parentDevId));
-            }
-            if (queryParent.lastError().type() != QSqlError::NoError){
-                qDebug()<<queryParent.lastError().text();
-                return all;
-            }
-            if (minParentQuery.lastError().type() != QSqlError::NoError){
-                qDebug()<<minParentQuery.lastError().text();
-            }else{
-                minParentQuery.next();
-                minParent = minParentQuery.value(0).toInt();
-            }
-
-            while(queryParent.next())
-            {
-                if(queryParent.value(2).toInt() == minParent){
-                    all->insertChildren(all->childCount(),1,all->columnCount());
-                    for(int i = 0;i<queryParent.record().count()-3;i++)
-                        all->child(all->childCount()-1)->setData(i,queryParent.value(i));
-                    all->child(all->childCount()-1)->setData(cIndex.ico,queryParent.value(queryParent.record().count()-3));
-                    all->child(all->childCount()-1)->setData(cIndex.invN,queryParent.value(queryParent.record().count()-1));
-                    all->child(all->childCount()-1)->setData(cIndex.isLicense,0);
-                }else{
-                    note = search(all, queryParent.value(2).toInt());
-                    if(note != all){
-                        note->insertChildren(note->childCount(),1,note->columnCount());
-                        for(int i = 0;i<queryParent.record().count()-3;i++)
-                            note->child(note->childCount()-1)->setData(i,queryParent.value(i));
-                        note->child(note->childCount()-1)->setData(cIndex.ico,queryParent.value(queryParent.record().count()-3));
-                        note->child(note->childCount()-1)->setData(cIndex.invN,queryParent.value(queryParent.record().count()-1));
-                        note->child(note->childCount()-1)->setData(cIndex.isLicense,0);
-                    }else{
-                        for(int i = 0;i<queryParent.record().count();i++)
-                            buffer.append(queryParent.value(i));
-                    }
-                }
-            }
-
-            while(buffer.size()>0)
-            {
-                note = search(all, buffer.value(f+2).toInt());
-                if(note != all){
-                    note->insertChildren(note->childCount(),1,note->columnCount());
-                    for(int i = 0;i<queryParent.record().count()-3;i++)
-                        note->child(note->childCount()-1)->setData(i,buffer.takeAt(f));
-                    note->child(note->childCount()-1)->setData(cIndex.ico,buffer.takeAt(f));
-                    buffer.takeAt(f);
-                    note->child(note->childCount()-1)->setData(cIndex.invN,buffer.takeAt(f));
-                    note->child(note->childCount()-1)->setData(cIndex.isLicense,0);
-                    n = 0;
-                }else{
-                    f = f+queryParent.record().count();
-                    if(f>buffer.size()){
-                        f = 0; n++;}
-                    if(n>2){
-                        while(buffer.size()>0){
-                            all->insertChildren(all->childCount(),1,all->columnCount());
-                            for(int i = 0;i<queryParent.record().count()-3;i++)
-                                all->child(all->childCount()-1)->setData(i,buffer.takeAt(f));
-                            all->child(all->childCount()-1)->setData(cIndex.ico,buffer.takeAt(f));
-                            buffer.takeAt(f);
-                            all->child(all->childCount()-1)->setData(cIndex.invN,buffer.takeAt(f));
-                            all->child(all->childCount()-1)->setData(cIndex.isLicense,0);
+        while(query.next())
+        {
+            int i;
+            all->insertChildren(all->childCount(),1,all->columnCount());
+            for(i = 0;i<query.record().count();i++)
+                all->child(all->childCount()-1)->setData(i,query.value(i));
+            all->child(all->childCount()-1)->setData(i,1);
+        }
+        if (showParent){
+            QSqlQuery queryChildren;
+            bool ok;
+            for(int i = 0; i<all->childCount();i++){
+                TreeItem *child = all->child(i);
+                int licenseKey = child->data(cIndex.key).toInt();
+                ok = queryChildren.exec(
+                            QString("SELECT device.name, device.id, device.NetworkName, typedevice.IconPath, device.InventoryN, device.CodOrganization, departments.Name FROM device "
+                                    "INNER JOIN typedevice ON device.CodTypeDevice = typedevice.CodTypeDevice "
+                                    "LEFT OUTER JOIN departments ON device.CodOrganization = departments.id "
+                                    "WHERE device.id IN "
+                                    "(SELECT p.id FROM device n, devtree t, device p "
+                                    "WHERE n.id IN "
+                                    "(SELECT CodDevice FROM licenseanddevice WHERE CodLicense = %1) "
+                                    "AND n.id = t.id AND t.parent_id = p.id) "
+                                    "ORDER BY device.type DESC;"
+                                    ).arg(licenseKey));
+                if(ok){
+                    if(queryChildren.size() > 0){
+                        while(queryChildren.next()){
+                            child->insertChildren(child->childCount(),1,child->columnCount());
+                            child->child(child->childCount()-1)->setData(cIndex.namePO,queryChildren.value(2).toString() + " / " + queryChildren.value(0).toString());
+                            child->child(child->childCount()-1)->setData(cIndex.key,queryChildren.value(1));
+                            child->child(child->childCount()-1)->setData(cIndex.ico,queryChildren.value(3));
+                            child->child(child->childCount()-1)->setData(cIndex.invN,queryChildren.value(4));
+                            child->child(child->childCount()-1)->setData(cIndex.codOrganization,queryChildren.value(5));
+                            child->child(child->childCount()-1)->setData(cIndex.nameOrg,queryChildren.value(6));
+                            child->child(child->childCount()-1)->setData(cIndex.isLicense,0);
                         }
                     }
-                }
-            }
-
-            while(query.next())
-            {
-                int i;
-                note = search(all, query.value(cIndex.codDevice).toInt());
-                if(note != all){
-                    note->insertChildren(note->childCount(),1,note->columnCount());
-                    for(i = 0;i<query.record().count();i++)
-                        note->child(note->childCount()-1)->setData(i,query.value(i));
-                    note->child(note->childCount()-1)->setData(i,1);
                 }else{
-                    all->insertChildren(all->childCount(),1,all->columnCount());
-                    for(i = 0;i<query.record().count();i++)
-                        all->child(all->childCount()-1)->setData(i,query.value(i));
-                    all->child(all->childCount()-1)->setData(i,1);
+                    lastErr.setDatabaseText(tr("При получении спика устройств лицензии %1 с кодом %2 возникла ошибка:\n%3")
+                                              .arg(child->data(cIndex.namePO).toString())
+                                              .arg(licenseKey)
+                                              .arg(queryChildren.lastError().text()));
+                    lastErr.setType(QSqlError::UnknownError);
+                    return all;
                 }
             }
         }
@@ -677,10 +589,9 @@ QSqlError LicenseModel::lastError()
 {
     return lastErr;
 }
-void LicenseModel::setShowParent(bool sp,QString devId)
+void LicenseModel::setShowParent(bool sp)
 {
     showParent = sp;
-    parentDevId = devId;
 }
 QString LicenseModel::aliasModelTable()
 {

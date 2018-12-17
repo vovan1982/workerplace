@@ -163,4 +163,10 @@
     <qresource prefix="/CuteReport">
         <file>ico/cutereport_logo_64x64.ico</file>
     </qresource>
+    <qresource prefix="/32x32/info">
+        <file>ico/info_32x32.png</file>
+    </qresource>
+    <qresource prefix="/128x128/workerplace">
+        <file>ico/workerplace.png</file>
+    </qresource>
 </RCC>

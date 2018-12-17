@@ -28,7 +28,6 @@ Cusers::Cusers(QWidget *parent, bool wpMode, int firmId, int wpId, bool readOnly
         horizontalLayout_7->removeItem(horizontalSpacer_3);
         addWPButton->setVisible(false);
         delWPButton->setVisible(false);
-//        horizontalLayout_13->removeItem(horizontalSpacer_7);
         lineEditOrganization->setVisible(false);
         label_15->setVisible(false);
         groupBoxUsers->setTitle(tr("Список пользователей"));
@@ -102,6 +101,7 @@ Cusers::Cusers(QWidget *parent, bool wpMode, int firmId, int wpId, bool readOnly
     mapper->addMapping(email, 7);
     mapper->addMapping(additionalemail, 8);
     mapper->addMapping(lineEditOrganization, 9);
+    mapper->addMapping(note, 10);
 
     departmentView->setModel(modelFilPredDep);
 
@@ -364,7 +364,8 @@ void Cusers::clearUserForm()
     lineEditPost->setText("");
     email->setText("");
     additionalemail->setText("");
-    codAD->setValue(0);
+    codAD->setText("");
+    note->setText("");
     populateLoginModel(-1);
     populateNumberModel(-1);
     wpViewUpdate();
@@ -476,7 +477,7 @@ bool Cusers::isLockedOrChanged()
                     .arg(model->index(realModelIndex(users->currentIndex()).row(),0).data().toInt()));
     if(ok){
         query.next();
-        if(model->index(realModelIndex(users->currentIndex()).row(),12).data().toInt() != query.value(0).toInt()){
+        if(model->index(realModelIndex(users->currentIndex()).row(),13).data().toInt() != query.value(0).toInt()){
             QMessageBox::information(this,tr("ВНИМАНИЕ!!!"),
                                      tr("Запись была изменена, будут загружены новые данные записи.\n"
                                         "Повторите свой выбор."),
@@ -601,7 +602,8 @@ void Cusers::on_buttonEdit_clicked()
     data["codPost"] = post->itemData(post->findText(model->index(curViewIndex.row(),6).data().toString()));
     data["email"] = model->index(curViewIndex.row(),7).data();
     data["additionalemail"] = model->index(curViewIndex.row(),8).data();
-    data["rv"] = model->index(curViewIndex.row(),12).data();
+    data["note"] = model->index(curViewIndex.row(),10).data();
+    data["rv"] = model->index(curViewIndex.row(),13).data();
     AddEditUsers *editUser = new AddEditUsers(this,m_wpMode,data,true);
     editUser->setWindowTitle(tr("Редактирование пользователя"));
     connect(editUser,SIGNAL(userDataChanged()),this,SLOT(setUserFilter()));
@@ -652,7 +654,7 @@ void Cusers::on_buttonEditLoginPass_clicked()
     data["login"] = loginModel->data(loginModel->index(loginPassView->currentIndex().row(),3)).toString();
     data["pass"] = loginModel->data(loginModel->index(loginPassView->currentIndex().row(),4)).toString();
     data["note"] = loginModel->data(loginModel->index(loginPassView->currentIndex().row(),5)).toString();
-    data["rv"] = model->index(realModelIndex(users->currentIndex()).row(),12).data();
+    data["rv"] = model->index(realModelIndex(users->currentIndex()).row(),13).data();
     if(!query.exec(QString("SELECT CodLoginType FROM loginpass WHERE `key` = %1")
                    .arg(loginModel->data(loginModel->index(loginPassView->currentIndex().row(),0)).toInt()))){
         QMessageBox::warning(this, tr("Ошибка"),
@@ -719,7 +721,7 @@ void Cusers::on_buttonEditNumber_clicked()
     data["userId"] = model->data(model->index(realModelIndex(users->currentIndex()).row(),0)).toInt();
     data["number"] = numberModel->data(numberModel->index(numberView->currentIndex().row(),3)).toString();;
     data["note"] = numberModel->data(numberModel->index(numberView->currentIndex().row(),4)).toString();;
-    data["rv"] = model->index(realModelIndex(users->currentIndex()).row(),12).data();
+    data["rv"] = model->index(realModelIndex(users->currentIndex()).row(),13).data();
     if(!query.exec(QString("SELECT CodTypeNumber FROM listnumber WHERE `key` = %1")
                    .arg(numberModel->data(numberModel->index(numberView->currentIndex().row(),0)).toInt()))){
         QMessageBox::warning(this, tr("Ошибка"),
@@ -856,14 +858,14 @@ void Cusers::on_groupBoxDep_clicked(bool checked)
 
 void Cusers::updateCurUserRowVersion()
 {
-    QModelIndex curIndex = users->currentIndex();
-    int curRowVersion = model->index(realModelIndex(users->currentIndex()).row(),12).data().toInt();
+    QModelIndex curIndex = realModelIndex(users->currentIndex());
+    int curRowVersion = model->index(realModelIndex(users->currentIndex()).row(),13).data().toInt();
     if(curRowVersion == 254)
-        model->setData(model->index(realModelIndex(users->currentIndex()).row(),12),0);
+        model->setData(model->index(realModelIndex(users->currentIndex()).row(),13),0);
     else
-        model->setData(model->index(realModelIndex(users->currentIndex()).row(),12),curRowVersion+1);
+        model->setData(model->index(realModelIndex(users->currentIndex()).row(),13),curRowVersion+1);
     model->submitAll();
-    users->setCurrentIndex(curIndex);
+    users->setCurrentIndex(proxyModel->mapFromSource(curIndex));
     if (model->lastError().type() != QSqlError::NoError)
         QMessageBox::information(this, tr("Ошибка"),
                                  tr("Не удалось обновить версию строки пользователя:\n %1")

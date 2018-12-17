@@ -7,7 +7,6 @@
 class Cusers;
 class Device;
 class Licenses;
-class AddEditNetworkData;
 
 class AddEditWorkerPlace : public QDialog, private Ui::AddEditWorkerPlace {
     Q_OBJECT
@@ -26,7 +25,6 @@ private:
     Cusers *wUsers;
     Device *wDevice;
     Licenses *wLicenses;
-    AddEditNetworkData *wAddEditNetworkData;
     bool formIsEdited();
 protected:
     void changeEvent(QEvent *e);

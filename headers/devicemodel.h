@@ -11,7 +11,7 @@ class DeviceModel : public QAbstractItemModel
 {
     Q_OBJECT
 public:
-    DeviceModel(const QString &dbConnectionName = "default", const QSqlDatabase &connectionData = QSqlDatabase(), QObject *parent = 0, bool inThread = true);
+    DeviceModel(const QString &dbConnectionName = "default", const QSqlDatabase &connectionData = QSqlDatabase(), QObject *parent = 0, bool inThread = true, bool isEmpty = false);
     ~DeviceModel();
     QModelIndex index(int row, int column, const QModelIndex& parent = QModelIndex()) const;
     bool hasChildren(const QModelIndex& parent = QModelIndex()) const;
@@ -38,6 +38,7 @@ public:
     bool removeColumns(int position, int columns, const QModelIndex &parent = QModelIndex());
     void setFilter(const QString& filters);
     void select();
+    void initEmpty();
     QModelIndex moveItem(int movedId, int newParentId);
     void copyItem(const QModelIndex& indexFrom, const QModelIndex& indexTo, int position);
     QModelIndex findData(int idData);
@@ -55,6 +56,9 @@ public:
         int orgName;
         int wpName;
         int name;
+        int networkName;
+        int codDomainWg;
+        int domainWgName;
         int inventoryN;
         int serialN;
         int codProducer;
@@ -71,6 +75,7 @@ public:
         int type;
         int iconPath;
         int rv;
+        int detailDescription;
     } cIndex;
     struct colomnTableName{
         QString id;
@@ -79,6 +84,9 @@ public:
         QString codWorkerPlace;
         QString codTypeDevice;
         QString name;
+        QString networkName;
+        QString codDomainWg;
+        QString domainWgName;
         QString inventoryN;
         QString serialN;
         QString codProvider;
@@ -89,8 +97,8 @@ public:
         QString price;
         QString codState;
         QString note;
-        QString type;
         QString rv;
+        QString detailDescription;
     } colTabName;
 
 private:
@@ -104,7 +112,7 @@ private:
     QString tabName,treeTable,aliasTable,filter,primaryQuery;
     QSqlError lastErr;
     PopulateDeviceThread *m_populateDeviceThread;
-    bool threadIsReady, queueUpdate, m_inThread;
+    bool threadIsReady, queueUpdate, m_inThread, m_isEmpty;
     DeviceThreadWorker* m_deviceThreadWorker;
 signals:
     void newTreeIsSet();

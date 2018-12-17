@@ -119,13 +119,14 @@ void AddExistingUser::populateModel()
     model->setHeaderData(6, Qt::Horizontal,tr("Должность"));
     model->setHeaderData(7, Qt::Horizontal,tr("Электронный адрес"));
     model->setHeaderData(8, Qt::Horizontal,tr("Дополнительный эл. адрес"));
+    model->setHeaderData(10, Qt::Horizontal,tr("Примечание"));
     model->setEditStrategy(QSqlTableModel::OnManualSubmit);
     model->select();
     userView->setColumnHidden(0,true);
     userView->setColumnHidden(9,true);
-    userView->setColumnHidden(10,true);
     userView->setColumnHidden(11,true);
     userView->setColumnHidden(12,true);
+    userView->setColumnHidden(13,true);
     if(model->rowCount() <= 0)
         addButton->setEnabled(false);
     else{
@@ -174,8 +175,8 @@ void AddExistingUser::populateCBox(const QString &select, const QString &fromWhe
 
 void AddExistingUser::populateFindIn()
 {
-    for(int i = 1; i < 9; i++){
-        if(i != 6)
+    for(int i = 1; i < 11; i++){
+        if(i != 6 && i != 9)
             findIn->addItem(model->headerData(i,Qt::Horizontal).toString(),model->record().fieldName(i));
     }
     findIn->setCurrentIndex(4);

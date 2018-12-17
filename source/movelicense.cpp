@@ -2,82 +2,66 @@
 #include <QDebug>
 #include <QMessageBox>
 #include <QStandardItemModel>
-#include "headers/movelicense.h"
-#include "headers/selectworkplace.h"
-#include "headers/devicemodelcontrol.h"
-#include "headers/devicemodel.h"
-#include "headers/filterdevice.h"
-#include "headers/selectlicense.h"
-#include "headers/licensemodel.h"
 #include "headers/edittable.h"
-#include "headers/addexistinguser.h"
+#include "headers/movelicense.h"
+#include "headers/devicemodel.h"
+#include "headers/licensemodel.h"
 #include "headers/lockdatabase.h"
+#include "headers/selectdevice.h"
+#include "headers/selectlicense.h"
+#include "headers/addexistinguser.h"
+#include "headers/devicemodelcontrol.h"
 
-MoveLicense::MoveLicense(QWidget *parent, bool singlMode, const QList<QVariant> &curWPData,
-                         const QList<QVariant> &licData, bool addWPMode, bool moveFromWp) :
+MoveLicense::MoveLicense(QWidget *parent, bool singlMode,const QList<QVariant> &licData) :
     QDialog(parent),
-    m_singlMode(singlMode),
-    m_addWPMode(addWPMode),
-    m_moveFromWp(moveFromWp)
+    m_singlMode(singlMode)
 {
     setupUi(this);
     this->setAttribute(Qt::WA_DeleteOnClose);
-    curOrgId = 0; curFilPredId = 0; curDepId = 0; curWPWHId = 0;
-    newOrgId = 0; newFilPredId = 0; newDepId = 0; newWPWHId = 0;
-    orgTexFilter = "";
-    curFilter = "";
 
     lockedControl = new LockDataBase(this);
     timer = new QTimer(this);
     connect(timer,SIGNAL(timeout()),this,SLOT(updateLockRecord()));
     timer->start(30000);
+
     db = QSqlDatabase::database("qt_sql_default_connection");
     db.setHostName(QSqlDatabase::database().hostName());
     db.setDatabaseName(QSqlDatabase::database().databaseName());
     db.setPort(QSqlDatabase::database().port());
     db.setUserName(QSqlDatabase::database().userName());
     db.setPassword(QSqlDatabase::database().password());
-    devModel = new DeviceModelControl(devView,devView,"movelicense",db,"",false);
-    connect(devModel,SIGNAL(dataIsPopulated()),this,SLOT(deviceModelIsPopulated()));
-    devModel->setHeaderData();
+
+    devModel = new DeviceModelControl(devView,devView,db,"movelicense");
 
     licModel = new LicenseModel(this);
-
     moveLicModel = new QStandardItemModel(0,licModel->columnCount()-1,this);
     moveLicModel->setHeaderData(licModel->cIndex.namePO, Qt::Horizontal,tr("Наименование"));
     moveLicModel->setHeaderData(licModel->cIndex.nameProd, Qt::Horizontal,tr("Производитель"));
+    moveLicModel->setHeaderData(licModel->cIndex.regKey, Qt::Horizontal,tr("Ключ регистрации"));
     moveLicModel->setHeaderData(licModel->cIndex.invN, Qt::Horizontal,tr("Инвентарный №"));
     moveLicModel->setHeaderData(licModel->cIndex.versionN, Qt::Horizontal,tr("№ версии"));
     moveLicModel->setHeaderData(licModel->cIndex.nameLic, Qt::Horizontal,tr("Тип лицензии"));
     moveLicModel->setHeaderData(licModel->cIndex.nameState, Qt::Horizontal,tr("Состояние"));
+    moveLicModel->setHeaderData(licModel->cIndex.kolLicense, Qt::Horizontal,tr("Кол-во лицензий"));
     moveLicView->setModel(moveLicModel);
     for(int i = 1; i <= licModel->columnCount(); i++)
         if(i != licModel->cIndex.nameProd && i != licModel->cIndex.invN && i != licModel->cIndex.versionN &&
-                i != licModel->cIndex.nameLic && i != licModel->cIndex.nameState)
+                i != licModel->cIndex.nameLic && i != licModel->cIndex.nameState && i != licModel->cIndex.regKey &&
+                i != licModel->cIndex.kolLicense)
             moveLicView->setColumnHidden(i,true);
 
     performer->setVisibleClearButtron(false);
     performer->setEnabledRunButtron(false);
 
-    if(singlMode){
-        fillCurPlace(curWPData);
-        addLicForMove(licData);
-    }
-    if(addWPMode){
-        fillNewPlace(curWPData);
-        selectNewButton->setEnabled(false);
-        setWindowTitle(tr("Добавление лицензии"));
-        groupBox->setTitle(tr("ИЗ:"));
-        groupBox_2->setTitle(tr("В:"));
-        moveButton->setText(tr("Добавить"));
-        moveButton->setIcon(QIcon(":/16x16/apply/ico/apply_16x16.png"));
-    }
-    if(moveFromWp){
-        fillCurPlace(curWPData);
-        selectCurButton->setEnabled(false);
-    }
     dateMoved->setDateTime(QDateTime(QDate::currentDate(),QTime::currentTime()));
     populateCBox("CodCause","cause","",tr("<Выберите причину>"),cause);
+    populateCBox("id","departments","firm = 1",tr("<Выберите организацию>"),curOrganization);
+    populateCBox("id","departments","firm = 1",tr("<Выберите организацию>"),newOrganization);
+    if(singlMode){
+        curOrganization->setCurrentIndex(curOrganization->findData(licData.value(licModel->cIndex.codOrganization)));
+        curOrganization->setEnabled(false);
+        addLicForMove(licData);
+    }
 }
 
 void MoveLicense::changeEvent(QEvent *e)
@@ -121,111 +105,12 @@ void MoveLicense::populateCBox(const QString &idName, const QString &tableName,
         cBox->addItem(query.value(1).toString(),query.value(0).toInt());
 }
 
-void MoveLicense::on_selectCurButton_clicked()
-{
-    SelectWorkPlace *swp = new SelectWorkPlace(this, newOrgId, true, true, newWPWHId);
-    connect(swp,SIGNAL(addWorkPlace(QList<QVariant>)),this,SLOT(fillCurPlace(QList<QVariant>)));
-    swp->setAttribute(Qt::WA_DeleteOnClose);
-    swp->exec();
-}
-
-void MoveLicense::fillCurPlace(QList<QVariant> curPlaceData)
-{
-    curOrgId = curPlaceData.value(curPlaceData.indexOf("org") + 2).toInt();
-    curFirm->setText(curPlaceData.value(curPlaceData.indexOf("org") + 1).toString());
-    curFilPredId = curPlaceData.value(curPlaceData.indexOf("fp") + 2).toInt();
-    curFP->setText(curPlaceData.value(curPlaceData.indexOf("fp") + 1).toString());
-    curDepId = curPlaceData.value(curPlaceData.indexOf("dep") + 2).toInt();
-    curDep->setText(curPlaceData.value(curPlaceData.indexOf("dep") + 1).toString());
-    curWPWHId = curPlaceData.value(curPlaceData.indexOf("wpwh") + 2).toInt();
-    curWpWh->setText(curPlaceData.value(curPlaceData.indexOf("wpwh") + 1).toString());
-    addLicButton->setEnabled(true);
-    moveButton->setEnabled(accessForMove());
-    performer->setEnabledRunButtron(true);
-}
-
-void MoveLicense::on_selectNewButton_clicked()
-{
-    SelectWorkPlace *swp = new SelectWorkPlace(this, curOrgId, true, true, curWPWHId);
-    connect(swp,SIGNAL(addWorkPlace(QList<QVariant>)),this,SLOT(fillNewPlace(QList<QVariant>)));
-    swp->setAttribute(Qt::WA_DeleteOnClose);
-    swp->exec();
-}
-
-void MoveLicense::fillNewPlace(QList<QVariant> newPlaceData)
-{
-    newOrgId = newPlaceData.value(newPlaceData.indexOf("org") + 2).toInt();
-    newFirm->setText(newPlaceData.value(newPlaceData.indexOf("org") + 1).toString());
-    newFilPredId = newPlaceData.value(newPlaceData.indexOf("fp") + 2).toInt();
-    newFP->setText(newPlaceData.value(newPlaceData.indexOf("fp") + 1).toString());
-    newDepId = newPlaceData.value(newPlaceData.indexOf("dep") + 2).toInt();
-    newDep->setText(newPlaceData.value(newPlaceData.indexOf("dep") + 1).toString());
-    newWPWHId = newPlaceData.value(newPlaceData.indexOf("wpwh") + 2).toInt();
-    newWpWh->setText(newPlaceData.value(newPlaceData.indexOf("wpwh") + 1).toString());
-
-    curFilter = QString("%2.id IN (SELECT id FROM %3 WHERE CodWorkerPlace = %1)")
-            .arg(newWPWHId)
-            .arg(devModel->model()->aliasModelTable())
-            .arg(devModel->model()->nameModelTable());
-    orgTexFilter = "";
-    filterIsSet = false;
-    clearFilterButton->setEnabled(false);
-    devModel->setDevFilter(curFilter);
-    moveButton->setEnabled(accessForMove());
-}
-
-void MoveLicense::on_groupBoxDev_clicked(bool checked)
-{
-    if(!checked){
-        devView->setCurrentIndex(QModelIndex());
-    }else
-        devModel->setCurrentIndexFirstRow();
-    devView->setEnabled(checked);
-}
-
-void MoveLicense::on_addFiltrButton_clicked()
-{
-    FilterDevice *f = new FilterDevice(this,true);
-    connect(f,SIGNAL(setFilter(QString)),this,SLOT(setOrgTexFilter(QString)));
-    f->exec();
-}
-
-void MoveLicense::setOrgTexFilter(const QString &filters)
-{
-    orgTexFilter = filters;
-    if(!curFilter.isEmpty() && !orgTexFilter.isEmpty())
-        devModel->setDevFilter(curFilter+" AND "+orgTexFilter);
-    if(!curFilter.isEmpty() && orgTexFilter.isEmpty())
-        devModel->setDevFilter(curFilter);
-    if(curFilter.isEmpty() && !orgTexFilter.isEmpty())
-        devModel->setDevFilter(orgTexFilter);
-    if(filters.isNull() || filters.isEmpty())
-        filterIsSet = false;
-    else
-        filterIsSet = true;
-    if(devModel->model()->rowCount() > 0){
-        devModel->setCurrentIndexFirstRow();
-        moveButton->setEnabled(true);
-    }else
-        moveButton->setEnabled(false);
-    clearFilterButton->setEnabled(filterIsSet);
-}
-
-void MoveLicense::on_clearFilterButton_clicked()
-{
-    setOrgTexFilter("");
-}
-
 bool MoveLicense::accessForMove()
 {
-    if(curOrgId > 0 && newOrgId > 0 && moveLicModel->rowCount() > 0 && cause->currentIndex() > 0 && !performer->data().isNull() && performer->data().toInt() > 0)
-        if(groupBoxDev->isChecked()){
-            if(devModel->model()->rowCount() > 0)
-                return true;
-            else
-                return false;
-        }else
-            return true;
+    if(curOrganization->currentIndex() > 0 && newOrganization->currentIndex() > 0 &&
+            moveLicModel->rowCount() > 0 && cause->currentIndex() > 0 &&
+            !performer->data().isNull() && performer->data().toInt() > 0)
+        return true;
     else
         return false;
 }
@@ -246,8 +131,11 @@ void MoveLicense::on_addLicButton_clicked()
         }
         dontShowLic += " )";
     }
-    filter = QString("l.CodWorkerPlace = %1 %2").arg(curWPWHId).arg(dontShowLic);
-    SelectLicense *sl = new SelectLicense(this,filter,true,true,curWPWHId);
+    filter = QString("l.CodOrganization = %1 %2").arg(curOrganization->currentData().toInt()).arg(dontShowLic);
+    QMap<int,QString> organizations;
+    for(int i = 1; i<curOrganization->count();i++)
+        organizations[curOrganization->itemData(i).toInt()] = curOrganization->itemText(i);
+    SelectLicense *sl = new SelectLicense(this,filter,true,organizations,curOrganization->currentData().toInt());
     connect(sl,SIGNAL(selectedLicense(QList<QVariant>)),this,SLOT(addLicForMove(QList<QVariant>)));
     connect(this,SIGNAL(lockedError(QString,bool)),sl,SLOT(lockedErrorMessage(QString,bool)));
     sl->exec();
@@ -257,7 +145,8 @@ void MoveLicense::addLicForMove(const QList<QVariant> &lic)
 {
     if(!lockedControl->recordIsLosked(lic.value(licModel->cIndex.key).toInt(),
                                       "`"+licModel->colTabName.key+"`",
-                                      licModel->nameModelTable())){
+                                      licModel->nameModelTable()))
+    {
         if(lockedControl->lastError().type() != QSqlError::NoError){
             timer->stop();
             if(!m_singlMode)
@@ -272,14 +161,14 @@ void MoveLicense::addLicForMove(const QList<QVariant> &lic)
             bool ok;
             ok = query.exec(QString("SELECT %1, %2 FROM %3 WHERE `%4` = %5")
                             .arg(licModel->colTabName.rv)
-                            .arg(licModel->colTabName.codWorkerPlace)
+                            .arg(licModel->colTabName.codOrganization)
                             .arg(licModel->nameModelTable())
                             .arg(licModel->colTabName.key)
                             .arg(lic.value(licModel->cIndex.key).toInt()));
             if(ok){
                 query.next();
                 if(lic.value(licModel->cIndex.rv).toInt() != query.value(0).toInt()){
-                    if(query.value(1).toInt() != lic.value(licModel->cIndex.codWorkerPlace).toInt()){
+                    if(query.value(1).toInt() != lic.value(licModel->cIndex.codOrganization).toInt()){
                         if(!m_singlMode)
                             emit lockedError(tr("Лицензия была перемещена,\n"
                                                 "выберите лицензию с нового места положения."),true);
@@ -308,11 +197,13 @@ void MoveLicense::addLicForMove(const QList<QVariant> &lic)
                     emit lockedError(tr("Не удалось получить информацию о версии записи:\n %1\n")
                                      .arg(query.lastError().text()),true);
                     return;
-                }else
+                }else{
                     QMessageBox::warning(this,tr("Ошибка!!!"),
                                          tr("Не удалось получить информацию о версии записи:\n %1\n")
                                          .arg(query.lastError().text()),
                                          tr("Закрыть"));
+                    return;
+                }
             }
 
             if(!lockedControl->lockRecord(lic.value(licModel->cIndex.key).toInt(),
@@ -361,11 +252,9 @@ void MoveLicense::addLicForMove(const QList<QVariant> &lic)
         delLicButton->setEnabled(true);
         clearLicButton->setEnabled(true);
         moveButton->setEnabled(accessForMove());
-        selectCurButton->setEnabled(false);
     }else{
         addLicButton->setEnabled(false);
         moveButton->setEnabled(accessForMove());
-        selectCurButton->setEnabled(false);
     }
 
     moveLicView->resizeColumnToContents(licModel->cIndex.namePO);
@@ -387,8 +276,6 @@ void MoveLicense::on_clearLicButton_clicked()
     delLicButton->setEnabled(false);
     clearLicButton->setEnabled(false);
     moveButton->setEnabled(accessForMove());
-    if(!m_moveFromWp)
-        selectCurButton->setEnabled(true);
     if(!lockedControl->unlockListRecord(lockedId,
                                       "`"+licModel->colTabName.key+"`",
                                       licModel->nameModelTable())){
@@ -408,8 +295,6 @@ void MoveLicense::on_delLicButton_clicked()
         delLicButton->setEnabled(false);
         clearLicButton->setEnabled(false);
         moveButton->setEnabled(accessForMove());
-        if(!m_moveFromWp)
-            selectCurButton->setEnabled(true);
     }
     if(!lockedControl->unlockRecord(lockedId,
                                     "`"+licModel->colTabName.key+"`",
@@ -433,7 +318,7 @@ void MoveLicense::on_buttonEditCause_clicked()
 
 void MoveLicense::on_performer_runButtonClicked()
 {
-    AddExistingUser *aeu = new AddExistingUser(this,curOrgId);
+    AddExistingUser *aeu = new AddExistingUser(this,curOrganization->currentData().toInt());
     aeu->setWindowTitle(tr("Выбор исполнителя"));
     aeu->setAddButtonName(tr("Выбрать"));
     connect(aeu,SIGNAL(userAdded(QString,int)),this,SLOT(setPerformer(QString,int)));
@@ -479,36 +364,41 @@ void MoveLicense::on_moveButton_clicked()
     }
     licForMove += ")";
 
-    ok = query.exec(QString("UPDATE licenses SET CodWorkerPlace = %1 WHERE `key` IN %2")
-                    .arg(newWPWHId).arg(licForMove));
+    ok = query.exec(QString("UPDATE licenses SET CodOrganization = %1 WHERE `key` IN %2")
+                    .arg(newOrganization->currentData().toInt()).arg(licForMove));
     if(!ok){
         QMessageBox::critical(this, tr("Ошибка"),
                               tr("Не удалось выполнить перемещение:\n %1").arg(query.lastError().text()),
                               tr("Закрыть"));
         return;
     }
-    if(groupBoxDev->isChecked()){
-        ok = query.exec(QString("UPDATE licenses SET CodDevice = %1 WHERE `key` IN %2")
-                        .arg(devModel->model()->index(devView->currentIndex().row(),
-                                                         devModel->model()->cIndex.id,
-                                                         devView->currentIndex().parent()).data().toInt())
-                        .arg(licForMove));
-        if(!ok){
-            QMessageBox::critical(this, tr("Ошибка"),
-                                  tr("Не удалось установить привязку к устройству:\n %1").arg(query.lastError().text()),
-                                  tr("Закрыть"));
-            return;
-        }
+
+    ok = query.exec(QString("DELETE FROM licenseanddevice WHERE CodLicense IN %1").arg(licForMove));
+    if(!ok){
+        QMessageBox::critical(this, tr("Ошибка"),
+                              tr("Не удалось очистить связи с устройствами предыдущей организации.\n"
+                                 "Связи с устройствами новой организации не будут установлены.\n %1").arg(query.lastError().text()),
+                              tr("Закрыть"));
     }else{
-        ok = query.exec(QString("UPDATE licenses SET CodDevice = NULL WHERE `key` IN %1").arg(licForMove));
-        if(!ok){
-            QMessageBox::critical(this, tr("Ошибка"),
-                                  tr("Не удалось удалить привязку к устройству:\n %1").arg(query.lastError().text()),
-                                  tr("Закрыть"));
-            return;
+        if(devModel->model()->rowCount() > 0){
+            int licId = 0;
+            int devId = 0;
+            for(int i = 0; i<moveLicModel->rowCount();i++){
+                licId = moveLicModel->data(moveLicModel->index(i,licModel->cIndex.key)).toInt();
+                for(int j = 0; j<devModel->model()->rowCount();j++){
+                    devId = devModel->model()->index(j,devModel->model()->cIndex.id).data().toInt();
+                    ok = query.exec(QString("INSERT INTO licenseanddevice (CodDevice,CodLicense) VALUES (%1,%2)").arg(devId).arg(licId));
+                    if(!ok)
+                        QMessageBox::critical(this, tr("Ошибка"),
+                                              tr("Не удалось установить связь с устройством %2:\n%1")
+                                              .arg(query.lastError().text())
+                                              .arg(devModel->model()->index(i,devModel->model()->cIndex.networkName).data().toString() + " / " +
+                                                   devModel->model()->index(i,devModel->model()->cIndex.name).data().toString()),
+                                              tr("Закрыть"));
+                }
+            }
         }
     }
-
     ok = query.exec(QString("SELECT `key`, rv FROM %2 WHERE `key` IN %1")
                     .arg(licForMove).arg(licModel->nameModelTable()));
     if(!ok)
@@ -538,34 +428,17 @@ void MoveLicense::on_moveButton_clicked()
             }
         }
     }
-
-    QString oldPlace, newPlace;
-    oldPlace = curFirm->text();
-    newPlace = newFirm->text();
-    if (!curFP->text().isNull() && !curFP->text().isEmpty())
-        oldPlace += "/"+curFP->text();
-    if (!newFP->text().isNull() && !newFP->text().isEmpty())
-        newPlace += "/"+newFP->text();
-    if (!curDep->text().isNull() && !curDep->text().isEmpty())
-        oldPlace += "/"+curDep->text();
-    if (!newDep->text().isNull() && !newDep->text().isEmpty())
-        newPlace += "/"+newDep->text();
-    oldPlace += "/"+curWpWh->text();
-    newPlace += "/"+newWpWh->text();
-
     for(int i = 0; i < moveLicModel->rowCount(); i++){
         addHistoryQuery.prepare("INSERT INTO historymoved (CodMovedLicense,DateMoved,OldPlace,NewPlace,"
-                                "CodCause,CodPerformer,Note,TypeHistory,CodOldPlace,CodNewPlace) VALUES (?,?,?,?,?,?,?,?,?,?)");
+                                "CodCause,CodPerformer,Note,TypeHistory) VALUES (?,?,?,?,?,?,?,?)");
         addHistoryQuery.addBindValue(moveLicModel->data(moveLicModel->index(i,licModel->cIndex.key)).toInt());
         addHistoryQuery.addBindValue(dateMoved->dateTime());
-        addHistoryQuery.addBindValue(oldPlace);
-        addHistoryQuery.addBindValue(newPlace);
+        addHistoryQuery.addBindValue(curOrganization->currentText());
+        addHistoryQuery.addBindValue(newOrganization->currentText());
         addHistoryQuery.addBindValue(cause->itemData(cause->currentIndex()).toInt());
         addHistoryQuery.addBindValue(performer->data().toInt());
         addHistoryQuery.addBindValue(note->toPlainText());
         addHistoryQuery.addBindValue(1);
-        addHistoryQuery.addBindValue(curWPWHId);
-        addHistoryQuery.addBindValue(newWPWHId);
         addHistoryQuery.exec();
         if (addHistoryQuery.lastError().type() != QSqlError::NoError)
         {
@@ -578,26 +451,26 @@ void MoveLicense::on_moveButton_clicked()
         }
     }
 
-    if(!m_singlMode && !m_addWPMode && !m_moveFromWp){
+    if(!m_singlMode)
+    {
         emit licIsMoved();
         on_clearLicButton_clicked();
         QMessageBox::information(this," ",tr("Перемещение выполненно успешно."),tr("Закрыть"));
     }else{
         emit licIsMoved();
+        QList<int> lockedId;
+        for(int i = 0;i<moveLicModel->rowCount();i++)
+            lockedId<<moveLicModel->index(i,licModel->cIndex.key).data().toInt();
+        if(!lockedControl->unlockListRecord(lockedId,
+                                          "`"+licModel->colTabName.key+"`",
+                                          licModel->nameModelTable())){
+            timer->stop();
+            QMessageBox::warning(this,tr("Ошибка!!!"),
+                                 tr("Не удалось снять блокировку:\n %1\n")
+                                 .arg(lockedControl->lastError().text()),
+                                 tr("Закрыть"));
+        }
         accept();
-    }
-}
-
-void MoveLicense::deviceModelIsPopulated()
-{
-    if(devModel->model()->rowCount()>0){
-        groupBoxDev->setChecked(false);
-        groupBoxDev->setEnabled(true);
-        on_groupBoxDev_clicked(false);
-    }else{
-        groupBoxDev->setChecked(false);
-        groupBoxDev->setEnabled(false);
-        on_groupBoxDev_clicked(false);
     }
 }
 
@@ -617,4 +490,100 @@ void MoveLicense::updateLockRecord()
                              .arg(lockedControl->lastError().text()),
                              tr("Закрыть"));
     }
+}
+
+void MoveLicense::on_newOrganization_currentIndexChanged(int index)
+{
+    if(index > 0){
+        if(index == curOrganization->currentIndex()){
+            QMessageBox::warning(this,tr("Ошибка!!!"),
+                                 tr("Текущее место нахождения и новое место нахождения не должны совпадать!!!"),
+                                 tr("Закрыть"));
+            newOrganization->setCurrentIndex(0);
+            return;
+        }
+        selectDeviceButton->setEnabled(true);
+        clearDevModel();
+        moveButton->setEnabled(accessForMove());
+    }else{
+        selectDeviceButton->setEnabled(false);
+        clearDevModel();
+        moveButton->setEnabled(accessForMove());
+    }
+}
+
+void MoveLicense::on_curOrganization_currentIndexChanged(int index)
+{
+    if(index > 0){
+        if(index == newOrganization->currentIndex()){
+            QMessageBox::warning(this,tr("Ошибка!!!"),
+                                 tr("Текущее место нахождения и новое место нахождения не должны совпадать!!!"),
+                                 tr("Закрыть"));
+            curOrganization->setCurrentIndex(0);
+            return;
+        }
+        addLicButton->setEnabled(true);
+        moveButton->setEnabled(accessForMove());
+        performer->setEnabledRunButtron(true);
+        setPerformer("",0);
+        on_clearLicButton_clicked();
+    }else{
+        addLicButton->setEnabled(false);
+        moveButton->setEnabled(accessForMove());
+        performer->setEnabledRunButtron(false);
+        setPerformer("",0);
+        on_clearLicButton_clicked();
+    }
+
+}
+
+void MoveLicense::on_selectDeviceButton_clicked()
+{
+    QString filter = "";
+    QString selectedDevice;
+    // Если есть привязанные устройства, тогда необходимо исключить их из списка устройств доступных для выбора
+    if(devModel->model()->rowCount() > 0){
+        selectedDevice = "(";
+        for(int i = 0; i<devModel->model()->rowCount();i++){
+            selectedDevice += QString("%1,").arg(devModel->model()->index(i,devModel->model()->cIndex.id).data().toInt());
+        }
+        selectedDevice = selectedDevice.left(selectedDevice.length()-1) + ")";
+        filter = QString("%1.CodOrganization = %2 AND typedevice.Type = 1 AND %1.id NOT IN %3")
+                .arg(devModel->model()->aliasModelTable())
+                .arg(newOrganization->itemData(newOrganization->currentIndex()).toInt())
+                .arg(selectedDevice);
+    }else{
+        filter = QString("%1.CodOrganization = %2 AND typedevice.Type = 1")
+                .arg(devModel->model()->aliasModelTable())
+                .arg(newOrganization->itemData(newOrganization->currentIndex()).toInt());
+    }
+    // Открываем окно выбора устройств
+    SelectDevice *sd = new SelectDevice(this,filter,true,false,true,true);
+    connect(sd,SIGNAL(selectedDevice(QList<QVariant>)),this,SLOT(setOrgTex(QList<QVariant>)));
+    sd->setViewRootIsDecorated(false);
+    sd->setAttribute(Qt::WA_DeleteOnClose);
+    sd->exec();
+}
+
+void MoveLicense::setOrgTex(const QList<QVariant> &dev)
+{
+    devModel->model()->insertRow(devModel->model()->rowCount());
+    devView->setCurrentIndex(devModel->realViewIndex(devModel->model()->index(devModel->model()->rowCount()-1,0)));
+    for(int i = 0; i<dev.count();i++){
+        devModel->model()->setDataWithOutSQL(devModel->model()->index(devModel->model()->rowCount()-1,i),dev.value(i));
+    }
+    removeDeviceButton->setEnabled(true);
+}
+void MoveLicense::clearDevModel()
+{
+    if(devModel->model()->rowCount() > 0)
+        devModel->model()->removeRows(0,devModel->model()->rowCount());
+    removeDeviceButton->setEnabled(false);
+}
+void MoveLicense::on_removeDeviceButton_clicked()
+{
+    QModelIndex curDevModelIndex = devModel->realModelIndex(devView->currentIndex());
+    devModel->model()->removeRow(curDevModelIndex.row(),curDevModelIndex.parent());
+    if(devModel->model()->rowCount() <= 0)
+        removeDeviceButton->setEnabled(false);
 }

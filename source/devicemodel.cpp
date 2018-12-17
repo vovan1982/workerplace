@@ -5,7 +5,11 @@
 #include "headers/populatedevicethread.h"
 #include "headers/devicethreadworker.h"
 
-DeviceModel::DeviceModel(const QString &dbConnectionName, const QSqlDatabase &connectionData, QObject *parent, bool inThread): QAbstractItemModel(parent), m_inThread(inThread){
+DeviceModel::DeviceModel(const QString &dbConnectionName, const QSqlDatabase &connectionData, QObject *parent, bool inThread, bool isEmpty):
+    QAbstractItemModel(parent),
+    m_inThread(inThread),
+    m_isEmpty(isEmpty)
+{
     queueUpdate = false;
     filter = "";
     tabName = "device";
@@ -20,6 +24,9 @@ DeviceModel::DeviceModel(const QString &dbConnectionName, const QSqlDatabase &co
                            ", departments.Name AS OrgName"
                            ", workerplace.Name AS WpName"
                            ", %2.Name"
+                           ", %2.NetworkName"
+                           ", %2.CodDomainWg"
+                           ", domainwg.Name AS DomainWgName"
                            ", %2.InventoryN"
                            ", %2.SerialN"
                            ", %2.CodProducer"
@@ -33,11 +40,14 @@ DeviceModel::DeviceModel(const QString &dbConnectionName, const QSqlDatabase &co
                            ", %2.CodState"
                            ", statedev.Name AS StateName"
                            ", %2.Note"
-                           ", %2.Type"
+                           ", typedevice.Type"
                            ", typedevice.IconPath"
                            ", %2.RV"
+                           ", %2.DetailDescription"
                            " FROM "
                            "%1 %2 "
+                           "LEFT OUTER JOIN domainwg "
+                           "ON %2.CodDomainWg = domainwg.CodDomainWg "
                            "LEFT OUTER JOIN statedev "
                            "ON %2.CodState = statedev.CodState "
                            "LEFT OUTER JOIN typedevice "
@@ -75,75 +85,88 @@ DeviceModel::DeviceModel(const QString &dbConnectionName, const QSqlDatabase &co
     rootData << "Name";
     cIndex.name = 8;
     colTabName.name = "name";
+    rootData << "NetworkName";
+    cIndex.networkName = 9;
+    colTabName.networkName = "networkName";
+    rootData << "CodDomainWg";
+    cIndex.codDomainWg = 10;
+    colTabName.codDomainWg = "CodDomainWg";
+    rootData << "DomainWgName";
+    cIndex.domainWgName = 11;
     rootData << "InventoryN";
-    cIndex.inventoryN = 9;
+    cIndex.inventoryN = 12;
     colTabName.inventoryN = "InventoryN";
     rootData << "SerialN";
-    cIndex.serialN = 10;
+    cIndex.serialN = 13;
     colTabName.serialN = "SerialN";
     rootData << "CodProducer";
-    cIndex.codProducer = 11;
+    cIndex.codProducer = 14;
     colTabName.codProducer = "CodProducer";
     rootData << "ProducerName";
-    cIndex.producerName = 12;
+    cIndex.producerName = 15;
     rootData << "CodProvider";
-    cIndex.codProvider = 13;
+    cIndex.codProvider = 16;
     colTabName.codProvider = "CodProvider";
     rootData << "ProviderName";
-    cIndex.providerName = 14;
+    cIndex.providerName = 17;
     rootData << "DatePurchase";
-    cIndex.datePurchase = 15;
+    cIndex.datePurchase = 18;
     colTabName.datePurchase = "DatePurchase";
     rootData << "DatePosting";
-    cIndex.datePosting = 16;
+    cIndex.datePosting = 19;
     colTabName.datePosting = "DatePosting";
     rootData << "EndGuarantee";
-    cIndex.endGuarantee = 17;
+    cIndex.endGuarantee = 20;
     colTabName.endGuarantee = "EndGuarantee";
     rootData << "Price";
-    cIndex.price = 18;
+    cIndex.price = 21;
     colTabName.price = "Price";
     rootData << "CodState";
-    cIndex.codState = 19;
+    cIndex.codState = 22;
     colTabName.codState = "CodState";
     rootData << "StateName";
-    cIndex.stateName = 20;
+    cIndex.stateName = 23;
     rootData << "Note";
-    cIndex.note = 21;
+    cIndex.note = 24;
     colTabName.note = "Note";
     rootData << "Type";
-    cIndex.type = 22;
-    colTabName.type = "Type";
+    cIndex.type = 25;
     rootData << "IconPath";
-    cIndex.iconPath = 23;
-    rootData << "Type";
-    cIndex.rv = 24;
+    cIndex.iconPath = 26;
+    rootData << "RV";
+    cIndex.rv = 27;
     colTabName.rv = "RV";
+    rootData << "DetailDescription";
+    cIndex.detailDescription = 28;
+    colTabName.detailDescription = "DetailDescription";
     rootItemData = new TreeItem(rootData);
-    if(inThread){
-        m_populateDeviceThread = new PopulateDeviceThread(dbConnectionName,connectionData);
-        connect(m_populateDeviceThread,SIGNAL(result(TreeItem*)),this,SLOT(setNewTree(TreeItem*)));
-        connect(m_populateDeviceThread,SIGNAL(ready(bool)),this,SLOT(setReadyThread(bool)));
-        connect(m_populateDeviceThread,SIGNAL(lastErrors(QSqlError)),this,SLOT(setLastError(QSqlError)));
-        m_populateDeviceThread->start();
-    }else{
-        m_deviceThreadWorker = new DeviceThreadWorker(dbConnectionName,connectionData);
-        connect(m_deviceThreadWorker,SIGNAL(result(TreeItem*)),this,SLOT(setNewTree(TreeItem*)));
-        connect(m_deviceThreadWorker,SIGNAL(lastErrors(QSqlError)),this,SLOT(setLastError(QSqlError)));
-        select();
+    if(!isEmpty){
+        if(inThread){
+            m_populateDeviceThread = new PopulateDeviceThread(dbConnectionName,connectionData);
+            connect(m_populateDeviceThread,SIGNAL(result(TreeItem*)),this,SLOT(setNewTree(TreeItem*)));
+            connect(m_populateDeviceThread,SIGNAL(ready(bool)),this,SLOT(setReadyThread(bool)));
+            connect(m_populateDeviceThread,SIGNAL(lastErrors(QSqlError)),this,SLOT(setLastError(QSqlError)));
+            m_populateDeviceThread->start();
+        }else{
+            m_deviceThreadWorker = new DeviceThreadWorker(dbConnectionName,connectionData);
+            connect(m_deviceThreadWorker,SIGNAL(result(TreeItem*)),this,SLOT(setNewTree(TreeItem*)));
+            connect(m_deviceThreadWorker,SIGNAL(lastErrors(QSqlError)),this,SLOT(setLastError(QSqlError)));
+            select();
+        }
     }
-
 }
 
 DeviceModel::~DeviceModel(){
     delete rootItemData;
-    if(m_inThread){
-        m_populateDeviceThread->quit();
-        m_populateDeviceThread->wait();
-        m_populateDeviceThread->~PopulateDeviceThread();
+    if(!m_isEmpty){
+        if(m_inThread){
+            m_populateDeviceThread->quit();
+            m_populateDeviceThread->wait();
+            m_populateDeviceThread->~PopulateDeviceThread();
+        }
+        else
+            m_deviceThreadWorker->~DeviceThreadWorker();
     }
-    else
-        m_deviceThreadWorker->~DeviceThreadWorker();
 }
 
 QModelIndex DeviceModel::index(int row, int column,
@@ -380,6 +403,15 @@ void DeviceModel::setFilter(const QString& filters)
     filter = filters;
 }
 
+void DeviceModel::initEmpty()
+{
+    QVector<QVariant> rootData;
+    for(int i=0; i<rootItemData->data().size(); i++)
+        rootData << rootItemData->data(i);
+    TreeItem *emptyModel = new TreeItem(rootData);
+    setNewTree(emptyModel);
+}
+
 void DeviceModel::select()
 {
     queueUpdate = true;
@@ -515,14 +547,13 @@ bool DeviceModel::sqlInsertRow(int row, int codOrganization, int codWorkerPlace,
     else
         parentId = parentItem->data(cIndex.id).toInt();
     field = "("; val = "(";
-    field += "parent_id,CodOrganization,CodWorkerPlace,CodTypeDevice,name,CodState,Type"; val += "?,?,?,?,?,?,?";
+    field += "parent_id,CodOrganization,CodWorkerPlace,CodTypeDevice,name,CodState"; val += "?,?,?,?,?,?";
     bindval.enqueue(parentId);
     bindval.enqueue(codOrganization);
     bindval.enqueue(codWorkerPlace);
     bindval.enqueue(codTypeDevice);
     bindval.enqueue(name);
     bindval.enqueue(codState);
-    bindval.enqueue(type);
 
     if(!colValue.isEmpty()){
         QMapIterator<QString, QVariant> i(colValue);
@@ -715,7 +746,7 @@ QModelIndex DeviceModel::findData(int idData)
 //        query.exec("BEGIN;");
 //        query.exec(QString("%1"
 //                           "ORDER BY "
-//                           "dev.Type DESC, parent_id; "
+//                           "typedevice.Type DESC, parent_id; "
 //                           "COMMIT;").arg(primaryQuery));
 //        minParentQuery.exec(QString("SELECT MIN(parent_id) FROM %1").arg(tabName));
 //    }else{
@@ -723,7 +754,7 @@ QModelIndex DeviceModel::findData(int idData)
 //        query.exec(QString("%1"
 //                           "WHERE %2 "
 //                           "ORDER BY "
-//                           "dev.Type DESC, parent_id; "
+//                           "typedevice.Type DESC, parent_id; "
 //                           "COMMIT;").arg(primaryQuery).arg(filter));
 //        minParentQuery.exec(QString("SELECT MIN(parent_id) FROM %1 %3 WHERE %2").arg(tabName).arg(filter).arg(aliasTable));
 //    }

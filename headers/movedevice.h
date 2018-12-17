@@ -25,6 +25,8 @@ private:
     DeviceModel *devModel;
     LockDataBase *lockedControl;
     QTimer* timer;
+    QTimer* licenseTimer;
+    QList<int> lockedLicenseId;
     void populateCBox(const QString &idName, const QString &tableName,
                       const QString &filter, const QString &nullStr, QComboBox *cBox);
     bool dataForMoveEntered();
@@ -53,6 +55,7 @@ private slots:
     void on_performer_runButtonClicked();
     void on_cause_currentIndexChanged(int);
     void updateLockRecord();
+    void updateLockLicenseRecord();
     void on_closeButton_clicked();
 };
 

@@ -101,10 +101,17 @@
     <addaction name="actionDeviceImport"/>
     <addaction name="actionUserImport"/>
    </widget>
+   <widget class="QMenu" name="menu_5">
+    <property name="title">
+     <string>Помощь</string>
+    </property>
+    <addaction name="actionAbout"/>
+   </widget>
    <addaction name="menu"/>
    <addaction name="menu_2"/>
    <addaction name="menu_4"/>
    <addaction name="menu_3"/>
+   <addaction name="menu_5"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QToolBar" name="toolBar">
@@ -310,6 +317,15 @@
    </property>
    <property name="text">
     <string>Открыть отчёт CuteReport</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/32x32/info/ico/info_32x32.png</normaloff>:/32x32/info/ico/info_32x32.png</iconset>
+   </property>
+   <property name="text">
+    <string>О программе</string>
    </property>
   </action>
  </widget>

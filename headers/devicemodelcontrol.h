@@ -19,6 +19,9 @@ public:
     explicit DeviceModelControl(QObject *parent = 0, QTreeView *view = 0, const QString &dbConnectionName = "default",
                                 const QSqlDatabase &connectionData = QSqlDatabase(),const QString &modelFilter = "",
                                 bool populateModelnInit = true, bool inThread = true);
+    explicit DeviceModelControl(QObject *parent = 0, QTreeView *view = 0, const QSqlDatabase &connectionData = QSqlDatabase(),
+                                const QString &dbConnectionName = "default");
+
     ~DeviceModelControl();
     void populateDevModel(const QString &filter);
     DeviceModel *model();

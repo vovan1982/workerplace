@@ -1,9 +1,9 @@
 #include <QtWidgets>
+#include "headers/enums.h"
 #include "headers/addeditworkerplace.h"
 #include "headers/users.h"
 #include "headers/device.h"
 #include "headers/licenses.h"
-#include "headers/addeditnetworkdata.h"
 #include "headers/lockdatabase.h"
 #include "headers/journalhistoryusersonwp.h"
 #include "headers/journalhistorymoved.h"
@@ -50,19 +50,11 @@ AddEditWorkerPlace::AddEditWorkerPlace(QWidget *parent, int wpFirmId, const QMap
     if(m_wpWareHouse != 0){
         this->setWindowTitle(tr("Склад"));
         this->label_3->setText(tr("Зав. склада:"));
-        wDevice = new Device(orgtex,true,m_wpId,wpFirmId,true,readOnly);
-        wLicenses = new Licenses(licenses,true,m_wpId,true,readOnly);
-        tabWidget->removeTab(3);
-    }else{
-        wDevice = new Device(orgtex,true,m_wpId,wpFirmId,false,readOnly);
-        wLicenses = new Licenses(licenses,true,m_wpId,readOnly);
-        wAddEditNetworkData = new AddEditNetworkData(network,m_wpId,readOnly);
-        verticalLayout_9->addWidget(wAddEditNetworkData);
     }
+    wDevice = new Device(orgtex,true,m_wpId,wpFirmId,readOnly);
+
     verticalLayout_2->addWidget(wUsers);
     verticalLayout_5->addWidget(wDevice);
-    verticalLayout_7->addWidget(wLicenses);
-    connect(wDevice,SIGNAL(devModelUpdated()),wLicenses,SLOT(updateLicenseModel()));
 }
 void AddEditWorkerPlace::setPrimaryUser(const QString &fio, int id)
 {

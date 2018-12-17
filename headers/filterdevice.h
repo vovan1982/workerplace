@@ -42,9 +42,7 @@ private slots:
     void on_groupBox_clicked(bool checked);
     void on_filterDepartment_runButtonClicked();
     void on_filterWorkPlace_runButtonClicked();
-    void on_filterType_currentIndexChanged(int index);
     void on_setButton_clicked();
-    void on_additionalFilteringRules_clicked(bool checked);
 };
 
 #endif // FILTERDEVICE_H

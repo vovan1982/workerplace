@@ -6,6 +6,8 @@ About::About(QWidget *parent) :
     ui(new Ui::About)
 {
     ui->setupUi(this);
+    ui->qtVersion->setText(QString("%1%2").arg(ui->qtVersion->text()).arg(qVersion()));
+    ui->version->setText(QString("%1%2").arg(ui->version->text()).arg(QApplication::applicationVersion()));
 }
 
 About::~About()

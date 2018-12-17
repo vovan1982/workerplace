@@ -35,6 +35,8 @@ MoveDevice::MoveDevice(QWidget *parent, bool singlMode, const QList<QVariant> &c
     moveDevModel = new QStandardItemModel(0,devModel->columnCount()-1,this);
     moveDevModel->setHeaderData(devModel->cIndex.typeDevName, Qt::Horizontal,tr("Тип устройства"));
     moveDevModel->setHeaderData(devModel->cIndex.name, Qt::Horizontal,tr("Наименование"));
+    moveDevModel->setHeaderData(devModel->cIndex.networkName, Qt::Horizontal,tr("Сетевое имя"));
+    moveDevModel->setHeaderData(devModel->cIndex.domainWgName, Qt::Horizontal,tr("Домен/Рабочая группа"));
     moveDevModel->setHeaderData(devModel->cIndex.inventoryN, Qt::Horizontal,tr("Инвентарный №"));
     moveDevModel->setHeaderData(devModel->cIndex.serialN, Qt::Horizontal,tr("Серийный №"));
     moveDevModel->setHeaderData(devModel->cIndex.producerName, Qt::Horizontal,tr("Производитель"));
@@ -54,11 +56,14 @@ MoveDevice::MoveDevice(QWidget *parent, bool singlMode, const QList<QVariant> &c
     deviceForMoveView->setColumnHidden(devModel->cIndex.codWorkerPlace,true);
     deviceForMoveView->setColumnHidden(devModel->cIndex.orgName,true);
     deviceForMoveView->setColumnHidden(devModel->cIndex.wpName,true);
+    deviceForMoveView->setColumnHidden(devModel->cIndex.codDomainWg,true);
     deviceForMoveView->setColumnHidden(devModel->cIndex.codProducer,true);
     deviceForMoveView->setColumnHidden(devModel->cIndex.codProvider,true);
     deviceForMoveView->setColumnHidden(devModel->cIndex.codState,true);
     deviceForMoveView->setColumnHidden(devModel->cIndex.type,true);
     deviceForMoveView->setColumnHidden(devModel->cIndex.iconPath,true);
+    deviceForMoveView->setColumnHidden(devModel->cIndex.rv,true);
+    deviceForMoveView->setColumnHidden(devModel->cIndex.detailDescription,true);
     deviceForMoveView->setItemDelegateForColumn(devModel->cIndex.price,new DoubleSpinBoxDelegat(0.00,9999999.99,0.01,2,deviceForMoveView));
     deviceForMoveView->resizeColumnToContents(devModel->cIndex.typeDevName);
     deviceForMoveView->resizeColumnToContents(devModel->cIndex.name);
@@ -206,10 +211,10 @@ void MoveDevice::on_newOrgTex_runButtonClicked()
     QString filter;
     if(!m_singlMode)
         filter = QString("%2.id IN (SELECT id FROM device WHERE CodWorkerPlace = %1)"
-                         " AND %2.Type = 1").arg(newWPId).arg(devModel->aliasModelTable());
+                         " AND typedevice.Type = 1").arg(newWPId).arg(devModel->aliasModelTable());
     else
         filter = QString("%3.id IN (SELECT id FROM device WHERE CodWorkerPlace = %1)"
-                         " AND %3.Type = 1 AND %3.id != %2")
+                         " AND typedevice.Type = 1 AND %3.id != %2")
                 .arg(newWPId)
                 .arg(moveDevModel->data(moveDevModel->index(0,devModel->cIndex.parent_id)).toString())
                 .arg(devModel->aliasModelTable());
@@ -248,8 +253,11 @@ void MoveDevice::on_addDeviceForMove_clicked()
     if(newOrgTex->data().toInt() != 0){
         filter = QString("%5.id IN (SELECT id FROM %6 WHERE CodWorkerPlace = %1)"
                          "AND (%5.id IN(select p.id from %6 n, %7 t, %6 p where "
-                         "n.id in (select id from %6 where type = 0 and parent_id !=0) "
-                         "and n.id = t.id and t.parent_id = p.id and t.level > 0 GROUP BY p.id) or %5.Type = 0)"
+                         "n.id in (select %5.id from %6 %5 "
+                         "LEFT OUTER JOIN typedevice "
+                         "ON %5.CodTypeDevice = typedevice.CodTypeDevice "
+                         "where typedevice.Type = 0 and %5.parent_id !=0) "
+                         "and n.id = t.id and t.parent_id = p.id and t.level > 0 GROUP BY p.id) or typedevice.Type = 0)"
                          "AND %5.id != %2 AND %5.parent_id != %2 %3 %4")
                 .arg(curWPId)
                 .arg(newOrgTex->data().toInt())
@@ -261,11 +269,14 @@ void MoveDevice::on_addDeviceForMove_clicked()
         sdm = new SelectDevice(this,filter,true,true,false,true);
     }else{
         if((curWPId == newWPId) && newOrgTex->data().toInt() == 0){
-            filter = QString("!(dev.parent_id = 0 AND dev.Type = 0) "
-                             "AND %4.id IN (SELECT id FROM %5 WHERE CodWorkerPlace = %1)"
+            filter = QString("!(dev.parent_id = 0 AND typedevice.Type = 0) "
+                             "AND %4.id IN (SELECT id FROM %5 WHERE CodWorkerPlace = %1) "
                              "AND (%4.id IN(select p.id from %5 n, %6 t, %5 p where "
-                             "n.id in (select id from %5 where type = 0 and parent_id !=0) "
-                             "and n.id = t.id and t.parent_id = p.id and t.level > 0 GROUP BY p.id) or %4.Type = 0) "
+                             "n.id in (select %4.id from %5 %4 "
+                             "LEFT OUTER JOIN typedevice "
+                             "ON %4.CodTypeDevice = typedevice.CodTypeDevice "
+                             "where typedevice.Type = 0 and %4.parent_id !=0) "
+                             "and n.id = t.id and t.parent_id = p.id and t.level > 0 GROUP BY p.id) or typedevice.Type = 0) "
                              "%2 %3")
                     .arg(curWPId)
                     .arg(dontShowDev)
@@ -524,67 +535,105 @@ void MoveDevice::on_moveDev_clicked()
             return;
         }
     }
+    bool moveLicenseToNewOrg = false;
     QSqlQuery query, addHistoryQuery;
     QString devForMove = "(";
     bool ok;
+    licenseTimer = new QTimer(this);
+
     devForMove += moveDevModel->data(moveDevModel->index(0,devModel->cIndex.id)).toString();
     for(int i = 1; i < moveDevModel->rowCount(); i++)
         devForMove += ","+moveDevModel->data(moveDevModel->index(i,devModel->cIndex.id)).toString();
     devForMove += ")";
+
+    if(newOrgTex->data().toInt() == 0 && curOrgId != newOrgId){
+        int button = QMessageBox::question(this, tr("Внимание"),
+                                 tr("Вы указали для перемещения другую организацию,"
+                                    "при перемещении в другую организацию вы можите вместе с выбранными устройствами "
+                                    "переместить привязанные к ним лицензии. Если вы не хотите перемещать лицензии вместе "
+                                    "с устройствами, тогда связи выбранных устройств с лицензиями будт удалены и "
+                                    "лицензии не будут перемещены.\n\nВы хотите переместить лицензии вместе с устройствами?"),
+                                 tr("Да"),tr("Нет"),"",1,1);
+        if(button == 0){
+            ok = query.exec(QString("SELECT CodLicense FROM licenseanddevice WHERE CodDevice IN %2").arg(devForMove));
+            if(!ok){
+                QMessageBox::warning(this, tr("Ошибка!!!"),
+                                     tr("Не удалось получить список лицензий привязанных к устройствам, лицензии не будут перемещены:\n%1")
+                                     .arg(query.lastError().text()),
+                                     tr("Закрыть"));
+            }else{
+                if(query.size() > 0){
+                    while(query.next())
+                        lockedLicenseId<<query.value(0).toInt();
+                    if(lockedControl->recordsIsLosked(lockedLicenseId,"`key`","licenses")){
+                        for(int i = 0; i<lockedLicenseId.size();i++){
+                            if(lockedControl->recordIsLosked(lockedLicenseId.value(i),"`key`","licenses")){
+                                int button = QMessageBox::question(this,tr("Ошибка!!!"),
+                                                                   tr("Как минимум одна лицензия заблокирована.\n"
+                                                                      "Пользователь выполнивший блокировку: %1.\n\n"
+                                                                      "Перемещение лицензий не возможно, вы хотите продолжить "
+                                                                      "перемещение устройств без лицензий?")
+                                                                   .arg(lockedControl->recordBlockingUser()),
+                                                                   tr("Да"),tr("Нет"),"",1,1);
+                                if(button == 1)
+                                    return;
+                            }
+                        }
+                    }else{
+                        if(!lockedControl->lockListRecord(lockedLicenseId,"`key`","licenses")){
+                            int button = QMessageBox::question(this,tr("Ошибка!!!"),
+                                                               tr("Не удалось заблокировать записи перемещаемых лицензий:\n %1\n\n"
+                                                                  "Перемещение лицензий не возможно, вы хотите продолжить "
+                                                                  "перемещение устройств без лицензий?")
+                                                               .arg(lockedControl->lastError().text()),
+                                                               tr("Да"),tr("Нет"),"",1,1);
+                            if(button == 1)
+                                return;
+                        }else{
+                            moveLicenseToNewOrg = true;
+                            connect(licenseTimer,SIGNAL(timeout()),this,SLOT(updateLockLicenseRecord()));
+                            licenseTimer->start(30000);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Если было укзанно родительское устройство
     if(newOrgTex->data().toInt() != 0){
+        // изменяем родителя и рабочее место у выбранных устройств
         ok = query.exec(QString("UPDATE %4 SET parent_id = %1, CodWorkerPlace = %2 WHERE id IN %3")
                         .arg(newOrgTex->data().toInt()).arg(newWPId).arg(devForMove).arg(devModel->nameModelTable()));
         if(!ok){
             QMessageBox::warning(this, tr("Ошибка!!!"),
-                                 tr("Не удалось внести изменения в базу данных:\n%1")
+                                 tr("Не удалось изменить рабочее место у устройств:\n%1")
                                  .arg(query.lastError().text()),
                                  tr("Закрыть"));
-            qDebug()<<query.lastQuery()<<"№1";
             return;
         }
 
-        ok = query.exec(QString("SELECT l.`key` FROM licenses l WHERE CodDevice IN %1").arg(devForMove));
-        if(!ok){
-            QMessageBox::warning(this, tr("Ошибка!!!"),
-                                 tr("Не удалось получить информацию о кодах лицензий:\n%1")
-                                 .arg(query.lastError().text()),
-                                 tr("Закрыть"));
-            qDebug()<<query.lastQuery()<<"№2";
-            return;
-        }
-        if(query.size()>0){
-            ok = query.exec(QString("UPDATE licenses SET CodWorkerPlace = %1 WHERE `key` IN ("
-                                    "SELECT l.`key` FROM licenses l WHERE CodDevice IN %2)")
-                            .arg(newWPId).arg(devForMove));
-            if(!ok){
-                QMessageBox::warning(this, tr("Ошибка!!!"),
-                                     tr("Не удалось внести изменения в базу данных:\n%1")
-                                     .arg(query.lastError().text()),
-                                     tr("Закрыть"));
-                qDebug()<<query.lastQuery()<<"№3";
-                return;
-            }
-        }
+        // Если была выбранна другая организация, изменяем организацию у устройств
         if(curOrgId != newOrgId){
             ok = query.exec(QString("UPDATE %3 SET CodOrganization = %1 WHERE id IN %2")
                             .arg(newOrgId).arg(devForMove).arg(devModel->nameModelTable()));
             if(!ok){
                 QMessageBox::warning(this, tr("Ошибка!!!"),
-                                     tr("Не удалось внести изменения в базу данных:\n%1")
+                                     tr("Не удалось изменить организацию у устройств:\n%1")
                                      .arg(query.lastError().text()),
                                      tr("Закрыть"));
-                qDebug()<<query.lastQuery()<<"№4";
                 return;
             }
         }
+
+        // Обновляем версию записей
         ok = query.exec(QString("SELECT id, rv FROM %2 WHERE id IN %1")
                         .arg(devForMove).arg(devModel->nameModelTable()));
         if(!ok){
             QMessageBox::warning(this, tr("Ошибка!!!"),
-                                 tr("Не удалось получить информацию о версиях записей:\n%1")
+                                 tr("Не удалось получить информацию о версиях записей устройств:\n%1")
                                  .arg(query.lastError().text()),
                                  tr("Закрыть"));
-            qDebug()<<query.lastQuery()<<"№5";
             return;
         }
         if(query.size() > 0){
@@ -601,15 +650,16 @@ void MoveDevice::on_moveDev_clicked()
                                 .arg(i.value()).arg(i.key()).arg(devModel->nameModelTable()));
                 if(!ok){
                     QMessageBox::warning(this, tr("Ошибка!!!"),
-                                         tr("Не удалось внести изменения в базу данных:\n%1")
+                                         tr("Не удалось обновить версию записей перемещаемых устройств:\n%1")
                                          .arg(query.lastError().text()),
                                          tr("Закрыть"));
-                    qDebug()<<query.lastQuery()<<"№6";
                     return;
                 }
             }
         }
     }else{
+        // Если родительское устройство небыло выбранно
+        // Удаляем родителей устройств
         ok = query.exec(QString("UPDATE %2 SET parent_id = 0 WHERE id IN %1")
                         .arg(devForMove).arg(devModel->nameModelTable()));
         if(!ok){
@@ -617,9 +667,9 @@ void MoveDevice::on_moveDev_clicked()
                                  tr("Не удалось внести изменения в базу данных:\n%1")
                                  .arg(query.lastError().text()),
                                  tr("Закрыть"));
-            qDebug()<<query.lastQuery()<<"№7";
             return;
         }
+        // Изменяем рабочие места у выбранных устройств и их детей
         ok = query.exec(QString("BEGIN; "
                                 "DROP TEMPORARY TABLE IF EXISTS my_temp_table; "
                                 "CREATE TEMPORARY TABLE my_temp_table(id INT NOT NULL); "
@@ -638,25 +688,7 @@ void MoveDevice::on_moveDev_clicked()
             qDebug()<<query.lastQuery()<<"№8";
             return;
         }
-        ok = query.exec(QString("BEGIN; "
-                                "DROP TEMPORARY TABLE IF EXISTS my_temp_table; "
-                                "CREATE TEMPORARY TABLE my_temp_table(id INT NOT NULL); "
-                                "INSERT INTO my_temp_table ( "
-                                "SELECT l.`key` FROM licenses l WHERE CodDevice IN ( "
-                                "SELECT c.id FROM %3 n, %4 t, %3 c "
-                                "WHERE n.id IN %2 AND n.id = t.parent_id AND t.id = c.id)); "
-                                "UPDATE licenses SET CodWorkerPlace = %1 WHERE `key` IN (SELECT id FROM my_temp_table); "
-                                "DROP TEMPORARY TABLE IF EXISTS my_temp_table; "
-                                "COMMIT; ")
-                        .arg(newWPId).arg(devForMove).arg(devModel->nameModelTable()).arg(devModel->nameModelTreeTable()));
-        if(!ok){
-            QMessageBox::warning(this, tr("Ошибка!!!"),
-                                 tr("Не удалось внести изменения в базу данных:\n%1")
-                                 .arg(query.lastError().text()),
-                                 tr("Закрыть"));
-            qDebug()<<query.lastQuery()<<"№9";
-            return;
-        }
+        // Если была выбранна другая организация, изменяем организацию у устройств и привязанных к ним лицензий
         if(curOrgId != newOrgId){
             ok = query.exec(QString("BEGIN; "
                                     "DROP TEMPORARY TABLE IF EXISTS my_temp_table; "
@@ -676,41 +708,101 @@ void MoveDevice::on_moveDev_clicked()
                 qDebug()<<query.lastQuery()<<"№10";
                 return;
             }
+            // Если был получен положительный ответ на вопрос о перемещении лицензий
+            if(moveLicenseToNewOrg){
+                ok = query.exec(QString("UPDATE licenses SET CodOrganization = %1 WHERE `key` IN ("
+                                        "SELECT CodLicense FROM licenseanddevice WHERE CodDevice IN %2)")
+                                .arg(newOrgId).arg(devForMove));
+                if(!ok){
+                    QMessageBox::warning(this, tr("Ошибка!!!"),
+                                         tr("Не удалось переместить привязанные лицензии, связм лицензий с устройсвами будут удалены:\n%1")
+                                         .arg(query.lastError().text()),
+                                         tr("Закрыть"));
+                    ok = query.exec(QString("DELETE FROM licenseanddevice WHERE CodDevice IN %1").arg(devForMove));
+                    if(!ok){
+                        QMessageBox::warning(this, tr("Ошибка!!!"),
+                                             tr("Не удалось удалить привязки лицензий к перемещаемым устройствам:\n%1")
+                                             .arg(query.lastError().text()),
+                                             tr("Закрыть"));
+                    }
+                }else{
+                    ok = query.exec(QString("SELECT `key`, rv FROM licenses WHERE `key` IN ("
+                                            "SELECT CodLicense FROM licenseanddevice WHERE CodDevice IN %2)")
+                                    .arg(devForMove));
+                    if(!ok)
+                        QMessageBox::warning(this, tr("Ошибка!!!"),
+                                             tr("Не удалось получить информацию о версиях записей перемещаемых лицензий:\n%1")
+                                             .arg(query.lastError().text()),
+                                             tr("Закрыть"));
+                    else{
+                        if(query.size() > 0){
+                            QMap<int,int> rowVersion;
+                            while(query.next()){
+                                if(query.value(1).toInt() == 254)
+                                    rowVersion[query.value(0).toInt()] = 0;
+                                else
+                                    rowVersion[query.value(0).toInt()] = query.value(1).toInt()+1;
+                            }
+                            QMap<int,int>::const_iterator i;
+                            for (i = rowVersion.constBegin(); i != rowVersion.constEnd(); ++i){
+                                ok = query.exec(QString("UPDATE licenses SET RV = %1 WHERE `key` = %2")
+                                                .arg(i.value()).arg(i.key()));
+                                if(!ok){
+                                    QMessageBox::warning(this, tr("Ошибка!!!"),
+                                                         tr("Не удалось обновить версии строк перемещаемых лицензий:\n%1")
+                                                         .arg(query.lastError().text()),
+                                                         tr("Закрыть"));
+                                }
+                            }
+                        }
+                    }
+                }
+                licenseTimer->stop();
+                lockedLicenseId.clear();
+            }else{
+                // Если от перемещения лицензий отказались
+                ok = query.exec(QString("DELETE FROM licenseanddevice WHERE CodDevice IN %1").arg(devForMove));
+                if(!ok){
+                    QMessageBox::warning(this, tr("Ошибка!!!"),
+                                         tr("Не удалось удалить привязки лицензий к перемещаемым устройствам:\n%1")
+                                         .arg(query.lastError().text()),
+                                         tr("Закрыть"));
+                }
+            }
         }
-    }
 
-    ok = query.exec(QString("SELECT c.id, c.rv FROM %2 n, %3 t, %2 c "
-                            "WHERE n.id IN %1 AND n.id = t.parent_id AND t.id = c.id")
-                    .arg(devForMove).arg(devModel->nameModelTable()).arg(devModel->nameModelTreeTable()));
-    if(!ok){
-        QMessageBox::warning(this, tr("Ошибка!!!"),
-                             tr("Не удалось получить информацию о версиях записей:\n%1")
-                             .arg(query.lastError().text()),
-                             tr("Закрыть"));
-        qDebug()<<query.lastQuery()<<"№11";
-    }
-    if(query.size() > 0){
-        QMap<int,int> rowVersion;
-        while(query.next()){
-            if(query.value(1).toInt() == 254)
-                rowVersion[query.value(0).toInt()] = 0;
-            else
-                rowVersion[query.value(0).toInt()] = query.value(1).toInt()+1;
+        ok = query.exec(QString("SELECT c.id, c.rv FROM %2 n, %3 t, %2 c "
+                                "WHERE n.id IN %1 AND n.id = t.parent_id AND t.id = c.id")
+                        .arg(devForMove).arg(devModel->nameModelTable()).arg(devModel->nameModelTreeTable()));
+        if(!ok){
+            QMessageBox::warning(this, tr("Ошибка!!!"),
+                                 tr("Не удалось получить информацию о версиях записей устройств:\n%1")
+                                 .arg(query.lastError().text()),
+                                 tr("Закрыть"));
         }
-        QMap<int,int>::const_iterator i;
-        for (i = rowVersion.constBegin(); i != rowVersion.constEnd(); ++i){
-            ok = query.exec(QString("UPDATE %3 SET RV = %1 WHERE id = %2")
-                            .arg(i.value()).arg(i.key()).arg(devModel->nameModelTable()));
-            if(!ok){
-                QMessageBox::warning(this, tr("Ошибка!!!"),
-                                     tr("Не удалось обновить версию записей:\n%1")
-                                     .arg(query.lastError().text()),
-                                     tr("Закрыть"));
-                qDebug()<<query.lastQuery()<<"№12";
+        if(query.size() > 0){
+            QMap<int,int> rowVersion;
+            while(query.next()){
+                if(query.value(1).toInt() == 254)
+                    rowVersion[query.value(0).toInt()] = 0;
+                else
+                    rowVersion[query.value(0).toInt()] = query.value(1).toInt()+1;
+            }
+            QMap<int,int>::const_iterator i;
+            for (i = rowVersion.constBegin(); i != rowVersion.constEnd(); ++i){
+                ok = query.exec(QString("UPDATE %3 SET RV = %1 WHERE id = %2")
+                                .arg(i.value()).arg(i.key()).arg(devModel->nameModelTable()));
+                if(!ok){
+                    QMessageBox::warning(this, tr("Ошибка!!!"),
+                                         tr("Не удалось обновить версию записей перемещаемых устройств:\n%1")
+                                         .arg(query.lastError().text()),
+                                         tr("Закрыть"));
+                }
             }
         }
     }
 
+    // Записываем перемещения в журнал
     QString oldPlace, newPlace;
     oldPlace = curOrg->text();
     newPlace = newOrg->text();
@@ -725,6 +817,7 @@ void MoveDevice::on_moveDev_clicked()
     oldPlace += "/"+curWP->text();
     newPlace += "/"+newWP->text();
 
+    // Записываем в журнал перемещения устройствв
     for(int i = 0; i < moveDevModel->rowCount(); i++){
         addHistoryQuery.prepare("INSERT INTO historymoved (CodMovedDevice,DateMoved,OldPlace,NewPlace,"
                                 "CodCause,CodPerformer,Note,TypeHistory,CodOldPlace,CodNewPlace) VALUES (?,?,?,?,?,?,?,?,?,?)");
@@ -742,108 +835,38 @@ void MoveDevice::on_moveDev_clicked()
         if (addHistoryQuery.lastError().type() != QSqlError::NoError)
         {
             QMessageBox::information(this, tr("Ошибка"),
-                                     tr("Не удалось добавить историю перемещения:\n %1")
+                                     tr("Не удалось добавить историю перемещения устройств:\n %1")
                                      .arg(addHistoryQuery.lastError().text()),
                                      tr("Закрыть"));
             return;
         }
     }
-
-    if(newOrgTex->data().toInt() != 0){
-        ok = query.exec(QString("SELECT l.`key` FROM licenses l WHERE CodDevice IN %1").arg(devForMove));
+    // Записываем в журнал перемещения лицензий
+    if(newOrgTex->data().toInt() == 0 && curOrgId != newOrgId &&moveLicenseToNewOrg){
+        ok = query.exec(QString("SELECT CodLicense FROM licenseanddevice WHERE CodDevice IN %1").arg(devForMove));
         if(!ok){
             QMessageBox::warning(this, tr("Ошибка!!!"),
                                  tr("Не удалось получить список перемещаемых лицензий:\n%1")
                                  .arg(query.lastError().text()),
                                  tr("Закрыть"));
-            qDebug()<<query.lastQuery();
             return;
         }
         while(query.next()){
             addHistoryQuery.prepare("INSERT INTO historymoved (CodMovedLicense,DateMoved,OldPlace,NewPlace,"
-                                    "CodCause,CodPerformer,Note,TypeHistory,CodOldPlace,CodNewPlace) VALUES (?,?,?,?,?,?,?,?,?,?)");
+                                    "CodCause,CodPerformer,Note,TypeHistory) VALUES (?,?,?,?,?,?,?,?)");
             addHistoryQuery.addBindValue(query.value(0).toInt());
             addHistoryQuery.addBindValue(dateMoved->dateTime());
-            addHistoryQuery.addBindValue(oldPlace);
-            addHistoryQuery.addBindValue(newPlace);
+            addHistoryQuery.addBindValue(curOrg->text());
+            addHistoryQuery.addBindValue(newOrg->text());
             addHistoryQuery.addBindValue(cause->itemData(cause->currentIndex()).toInt());
             addHistoryQuery.addBindValue(performer->data().toInt());
-            addHistoryQuery.addBindValue(note->toPlainText());
+            addHistoryQuery.addBindValue(tr("Перемещение совместно с привязанным устройством"));
             addHistoryQuery.addBindValue(1);
-            addHistoryQuery.addBindValue(curWPId);
-            addHistoryQuery.addBindValue(newWPId);
             addHistoryQuery.exec();
             if (addHistoryQuery.lastError().type() != QSqlError::NoError)
             {
                 QMessageBox::information(this, tr("Ошибка"),
                                          tr("Не удалось добавить историю перемещения лицензий:\n %1")
-                                         .arg(addHistoryQuery.lastError().text()),
-                                         tr("Закрыть"));
-                return;
-            }
-        }
-    }else{
-        ok = query.exec(QString("SELECT l.`key` FROM licenses l WHERE CodDevice IN %1").arg(devForMove));
-        if(!ok){
-            QMessageBox::warning(this, tr("Ошибка!!!"),
-                                 tr("Не удалось получить список перемещаемых лицензий:\n%1")
-                                 .arg(query.lastError().text()),
-                                 tr("Закрыть"));
-            qDebug()<<query.lastQuery();
-            return;
-        }
-        while(query.next()){
-            addHistoryQuery.prepare("INSERT INTO historymoved (CodMovedLicense,DateMoved,OldPlace,NewPlace,"
-                                    "CodCause,CodPerformer,Note,TypeHistory,CodOldPlace,CodNewPlace) VALUES (?,?,?,?,?,?,?,?,?,?)");
-            addHistoryQuery.addBindValue(query.value(0).toInt());
-            addHistoryQuery.addBindValue(dateMoved->dateTime());
-            addHistoryQuery.addBindValue(oldPlace);
-            addHistoryQuery.addBindValue(newPlace);
-            addHistoryQuery.addBindValue(cause->itemData(cause->currentIndex()).toInt());
-            addHistoryQuery.addBindValue(performer->data().toInt());
-            addHistoryQuery.addBindValue(note->toPlainText());
-            addHistoryQuery.addBindValue(1);
-            addHistoryQuery.addBindValue(curWPId);
-            addHistoryQuery.addBindValue(newWPId);
-            addHistoryQuery.exec();
-            if (addHistoryQuery.lastError().type() != QSqlError::NoError)
-            {
-                QMessageBox::information(this, tr("Ошибка"),
-                                         tr("Не удалось добавить историю перемещения лицензий:\n %1")
-                                         .arg(addHistoryQuery.lastError().text()),
-                                         tr("Закрыть"));
-                return;
-            }
-        }
-        ok = query.exec(QString("SELECT l.`key` FROM licenses l WHERE CodDevice IN ("
-                                "SELECT c.id FROM %2 n, %3 t, %2 c "
-                                "WHERE n.id IN %1 AND n.id = t.parent_id AND t.id = c.id AND t.level > 0)")
-                        .arg(devForMove).arg(devModel->nameModelTable()).arg(devModel->nameModelTreeTable()));
-        if(!ok){
-            QMessageBox::warning(this, tr("Ошибка!!!"),
-                                 tr("Не удалось получить список перемещаемых лицензий №2:\n%1")
-                                 .arg(query.lastError().text()),
-                                 tr("Закрыть"));
-            return;
-        }
-        while(query.next()){
-            addHistoryQuery.prepare("INSERT INTO historymoved (CodMovedLicense,DateMoved,OldPlace,NewPlace,"
-                                    "CodCause,CodPerformer,Note,TypeHistory,CodOldPlace,CodNewPlace) VALUES (?,?,?,?,?,?,?,?,?,?)");
-            addHistoryQuery.addBindValue(query.value(0).toInt());
-            addHistoryQuery.addBindValue(dateMoved->dateTime());
-            addHistoryQuery.addBindValue(oldPlace);
-            addHistoryQuery.addBindValue(newPlace);
-            addHistoryQuery.addBindValue(cause->itemData(cause->currentIndex()).toInt());
-            addHistoryQuery.addBindValue(performer->data().toInt());
-            addHistoryQuery.addBindValue(note->toPlainText());
-            addHistoryQuery.addBindValue(1);
-            addHistoryQuery.addBindValue(curWPId);
-            addHistoryQuery.addBindValue(newWPId);
-            addHistoryQuery.exec();
-            if (addHistoryQuery.lastError().type() != QSqlError::NoError)
-            {
-                QMessageBox::information(this, tr("Ошибка"),
-                                         tr("Не удалось добавить историю перемещения лицензий №2:\n %1")
                                          .arg(addHistoryQuery.lastError().text()),
                                          tr("Закрыть"));
                 return;
@@ -851,8 +874,7 @@ void MoveDevice::on_moveDev_clicked()
         }
     }
 
-
-
+    // Выводим сообщение об успешном перемещении
     if(!m_singlMode){
         emit devIsMoved();
         if(!m_addWPMode){
@@ -881,7 +903,6 @@ void MoveDevice::on_moveDev_clicked()
                                  tr("Закрыть"));
     }
 }
-
 void MoveDevice::populateCBox(const QString &idName, const QString &tableName,
                             const QString &filter, const QString &nullStr, QComboBox *cBox)
 {
@@ -905,7 +926,6 @@ void MoveDevice::populateCBox(const QString &idName, const QString &tableName,
     while(query.next())
         cBox->addItem(query.value(1).toString(),query.value(0).toInt());
 }
-
 void MoveDevice::on_note_textChanged()
 {
     if(note->toPlainText().count() > 255){
@@ -917,7 +937,6 @@ void MoveDevice::on_note_textChanged()
         note->setTextCursor(cursor);
     }
 }
-
 void MoveDevice::on_buttonEditCause_clicked()
 {
     CeditTable edittable(this,QString("cause"));
@@ -926,7 +945,6 @@ void MoveDevice::on_buttonEditCause_clicked()
     cause->clear();
     populateCBox("CodCause","cause","",tr("<Выберите причину>"),cause);
 }
-
 void MoveDevice::on_performer_runButtonClicked()
 {
     AddExistingUser *aeu = new AddExistingUser(this,curOrgId);
@@ -935,14 +953,12 @@ void MoveDevice::on_performer_runButtonClicked()
     connect(aeu,SIGNAL(userAdded(QString,int)),this,SLOT(setPerformer(QString,int)));
     aeu->exec();
 }
-
 void MoveDevice::setPerformer(const QString &performerName, int performerId)
 {
     performer->setText(performerName);
     performer->setData(performerId);
     moveDev->setEnabled(dataForMoveEntered());
 }
-
 bool MoveDevice::dataForMoveEntered()
 {
     if(cause->currentIndex() > 0 && !performer->data().isNull() && performer->data().toInt() > 0 && moveDevModel->rowCount() > 0 &&
@@ -951,12 +967,10 @@ bool MoveDevice::dataForMoveEntered()
     else
         return false;
 }
-
 void MoveDevice::on_cause_currentIndexChanged(int)
 {
     moveDev->setEnabled(dataForMoveEntered());
 }
-
 void MoveDevice::updateLockRecord()
 {
     if(moveDevModel->rowCount() <= 0)
@@ -993,13 +1007,22 @@ void MoveDevice::updateLockRecord()
                              tr("Закрыть"));
     }
 }
-
+void MoveDevice::updateLockLicenseRecord()
+{
+    if(!lockedControl->lockListRecord(lockedLicenseId,"`key`","licenses")){
+        licenseTimer->stop();
+        lockedLicenseId.clear();
+        QMessageBox::warning(this,tr("Ошибка!!!"),
+                             tr("Не удалось продлить блокировку записей перемещаемых лицензий:\n %1\n")
+                             .arg(lockedControl->lastError().text()),
+                             tr("Закрыть"));
+    }
+}
 void MoveDevice::on_closeButton_clicked()
 {
     on_cancel_clicked();
     reject();
 }
-
 void MoveDevice::changeEvent(QEvent *e)
 {
     QDialog::changeEvent(e);
@@ -1011,7 +1034,6 @@ void MoveDevice::changeEvent(QEvent *e)
         break;
     }
 }
-
 void MoveDevice::closeEvent(QCloseEvent *event){
     on_cancel_clicked();
     event->accept();

@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QTreeView>
+#include <QSortFilterProxyModel>
 
 class LicenseModel;
 
@@ -20,9 +21,12 @@ public:
     void setCurrentIndexFirstRow();
     void setShowParentDevice(bool show);
     bool showParentDevice();
+    QModelIndex realModelIndex(const QModelIndex &viewIndex) const;
+    QModelIndex realViewIndex(const QModelIndex &modelIndex) const;
 private:
     LicenseModel *licModel;
     QTreeView *m_view;
+    QSortFilterProxyModel *proxyModel;
     bool m_showParentDevice;
     QString licFilter;
 signals:

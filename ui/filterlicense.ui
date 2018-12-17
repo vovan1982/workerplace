@@ -27,68 +27,20 @@
       </font>
      </property>
      <property name="title">
-      <string>Место нахождения</string>
+      <string>Организация</string>
      </property>
      <property name="checkable">
-      <bool>true</bool>
+      <bool>false</bool>
      </property>
      <property name="checked">
       <bool>false</bool>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout">
       <item>
-       <widget class="LineEditTwoButton" name="filterDepartment">
-        <property name="readOnly">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="dontShowChild">
-        <property name="text">
-         <string>Не отображать лицензии с Рабочих мест/Складов
- дочерних подразделений</string>
-        </property>
-       </widget>
+       <widget class="QComboBox" name="organization"/>
       </item>
      </layout>
     </widget>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_4">
-     <item>
-      <widget class="QLabel" name="label">
-       <property name="font">
-        <font>
-         <weight>75</weight>
-         <bold>true</bold>
-        </font>
-       </property>
-       <property name="text">
-        <string>Рабочее Место/Склад:</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-       </property>
-       <property name="buddy">
-        <cstring>filterWorkPlace</cstring>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="LineEditTwoButton" name="filterWorkPlace">
-       <property name="font">
-        <font>
-         <weight>75</weight>
-         <bold>true</bold>
-        </font>
-       </property>
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-    </layout>
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_5">
@@ -192,8 +144,8 @@
           <rect>
            <x>0</x>
            <y>0</y>
-           <width>642</width>
-           <height>141</height>
+           <width>646</width>
+           <height>216</height>
           </rect>
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_2">

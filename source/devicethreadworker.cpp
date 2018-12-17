@@ -93,7 +93,7 @@ void DeviceThreadWorker::createDeviceTree(const QMap<QString,QString> &forQuery,
         query.exec("BEGIN;");
         query.exec(QString("%1"
                            "ORDER BY "
-                           "dev.Type DESC, parent_id; "
+                           "typedevice.Type DESC, parent_id; "
                            "COMMIT;").arg(primaryQuery));
         minParentQuery.exec(QString("SELECT MIN(parent_id) FROM %1").arg(tabName));
     }else{
@@ -101,9 +101,27 @@ void DeviceThreadWorker::createDeviceTree(const QMap<QString,QString> &forQuery,
         query.exec(QString("%1"
                            "WHERE %2 "
                            "ORDER BY "
-                           "dev.Type DESC, parent_id; "
+                           "typedevice.Type DESC, parent_id; "
                            "COMMIT;").arg(primaryQuery).arg(filter));
-        minParentQuery.exec(QString("SELECT MIN(parent_id) FROM %1 %3 WHERE %2").arg(tabName).arg(filter).arg(aliasTable));
+        minParentQuery.exec(QString("SELECT MIN(%3.parent_id) FROM %1 %3 "
+                                    "LEFT OUTER JOIN domainwg "
+                                    "ON %3.CodDomainWg = domainwg.CodDomainWg "
+                                    "LEFT OUTER JOIN statedev "
+                                    "ON %3.CodState = statedev.CodState "
+                                    "LEFT OUTER JOIN typedevice "
+                                    "ON %3.CodTypeDevice = typedevice.CodTypeDevice "
+                                    "LEFT OUTER JOIN departments "
+                                    "ON %3.CodOrganization = departments.id "
+                                    "LEFT OUTER JOIN workerplace "
+                                    "ON %3.CodWorkerPlace = workerplace.CodWorkerPlace "
+                                    "LEFT OUTER JOIN provider "
+                                    "ON %3.CodProvider = provider.CodProvider "
+                                    "LEFT OUTER JOIN producer "
+                                    "ON %3.CodProducer = producer.CodProducer "
+                                    " WHERE %2")
+                            .arg(tabName)
+                            .arg(filter)
+                            .arg(aliasTable));
     }
     if (query.lastError().type() != QSqlError::NoError){
         emit lastErrors(query.lastError());

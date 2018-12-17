@@ -2,20 +2,19 @@
 #define ADDEDITNETWORKINTERFACE_H
 
 #include <QtWidgets>
+#include <QSqlTableModel>
 #include "ui_addeditnetworkinterface.h"
-
-class InterfaceModel;
 
 class AddEditNetworkInterface : public QDialog, private Ui::AddEditNetworkInterface
 {
     Q_OBJECT
     
 public:
-    explicit AddEditNetworkInterface(QWidget *parent = 0, int networkDataId = 0, InterfaceModel *im = 0, bool editMode = false,
+    explicit AddEditNetworkInterface(QWidget *parent = 0, int deviceId = 0, QSqlTableModel *im = 0, bool editMode = false,
                                      const QModelIndex &index = QModelIndex());
 private:
-    int m_networkDataId;
-    InterfaceModel *m_im;
+    int m_deviceId;
+    QSqlTableModel *m_im;
     bool m_editMode;
     QModelIndex m_index;
     int autoIP, autoDns, autoWins;
@@ -37,6 +36,7 @@ private slots:
     void on_dns_textEdited();
     void on_wins_textEdited();
     void on_buttonRevert_clicked();
+    void on_note_cursorPositionChanged();
 };
 
 #endif // ADDEDITNETWORKINTERFACE_H

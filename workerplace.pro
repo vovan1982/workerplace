@@ -4,6 +4,8 @@
 QT += sql xml widgets printsupport core
 TARGET = workerplace
 TEMPLATE = app
+RC_FILE = workerplace.rc
+VERSION = 0.9.0.0
 SOURCES += main.cpp \
     source/connectdb.cpp \
     source/referencebook.cpp \
@@ -49,9 +51,7 @@ SOURCES += main.cpp \
     source/movelicense.cpp \
     source/selectlicense.cpp \
     source/filterlicense.cpp \
-    source/addeditnetworkdata.cpp \
     source/addeditnetworkinterface.cpp \
-    source/interfacemodel.cpp \
     source/devicemodel.cpp \
     source/devicemodelcontrol.cpp \
     source/device.cpp \
@@ -80,7 +80,10 @@ SOURCES += main.cpp \
     source/inventoryreportworker.cpp \
     source/opencutereport.cpp \
     source/reportfileitem.cpp \
-    source/reportfilelistmodel.cpp
+    source/reportfilelistmodel.cpp \
+    source/licensetablemodel.cpp \
+    source/about.cpp \
+    source/loadindicator.cpp
 HEADERS += headers/connectdb.h \
     headers/referencebook.h \
     headers/edittable.h \
@@ -124,9 +127,7 @@ HEADERS += headers/connectdb.h \
     headers/movelicense.h \
     headers/selectlicense.h \
     headers/filterlicense.h \
-    headers/addeditnetworkdata.h \
     headers/addeditnetworkinterface.h \
-    headers/interfacemodel.h \
     headers/devicemodel.h \
     headers/devicemodelcontrol.h \
     headers/device.h \
@@ -156,7 +157,11 @@ HEADERS += headers/connectdb.h \
     headers/inventoryreportworker.h \
     headers/opencutereport.h \
     headers/reportfileitem.h \
-    headers/reportfilelistmodel.h
+    headers/reportfilelistmodel.h \
+    headers/enums.h \
+    headers/licensetablemodel.h \
+    headers/about.h \
+    headers/loadindicator.h
 FORMS += ui/workerplace.ui \
     ui/connectdb.ui \
     ui/referencebook.ui \
@@ -192,7 +197,6 @@ FORMS += ui/workerplace.ui \
     ui/movelicense.ui \
     ui/selectlicense.ui \
     ui/filterlicense.ui \
-    ui/addeditnetworkdata.ui \
     ui/addeditnetworkinterface.ui \
     ui/device.ui \
     ui/filterdevice.ui \
@@ -211,8 +215,9 @@ FORMS += ui/workerplace.ui \
     ui/addeditnumber.ui \
     ui/journalhistoryusersonwp.ui \
     ui/deluserwithwp.ui \
-    ui/opencutereport.ui
+    ui/opencutereport.ui \
+    ui/about.ui
 RESOURCES += icons.qrc
 
 include(plugins/lineedittwobutton/lineedittwobutton.pri)
-include(cutereport/include/CuteReport.pri)
+include(cutereport/x64/include/CuteReport.pri)

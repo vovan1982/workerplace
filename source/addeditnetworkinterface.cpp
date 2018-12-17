@@ -1,11 +1,10 @@
 #include <QtSql>
 #include <QMessageBox>
 #include "headers/addeditnetworkinterface.h"
-#include "headers/interfacemodel.h"
 
-AddEditNetworkInterface::AddEditNetworkInterface(QWidget *parent, int networkDataId, InterfaceModel *im, bool editMode, const QModelIndex &index) :
+AddEditNetworkInterface::AddEditNetworkInterface(QWidget *parent, int deviceId, QSqlTableModel *im, bool editMode, const QModelIndex &index) :
     QDialog(parent),
-    m_networkDataId(networkDataId),
+    m_deviceId(deviceId),
     m_im(im),
     m_editMode(editMode),
     m_index(index)
@@ -35,7 +34,8 @@ void AddEditNetworkInterface::changeEvent(QEvent *e)
 void AddEditNetworkInterface::setDefaultEditData()
 {
     name->setText(m_im->data(m_im->index(m_index.row(),2)).toString());
-    if(m_im->data(m_im->index(m_index.row(),8)).toInt() == 1){
+    note->setPlainText(m_im->data(m_im->index(m_index.row(),8)).toString());
+    if(m_im->data(m_im->index(m_index.row(),9)).toInt() == 1){
         checkAutoIP->setChecked(true);
         on_checkAutoIP_clicked(true);
     }else{
@@ -46,15 +46,15 @@ void AddEditNetworkInterface::setDefaultEditData()
         gate->setText(m_im->data(m_im->index(m_index.row(),5)).toString());
         dns->setText(m_im->data(m_im->index(m_index.row(),6)).toString());
     }
-    if(m_im->data(m_im->index(m_index.row(),8)).toInt() == 1 && m_im->data(m_im->index(m_index.row(),9)).toInt() == 0){
+    if(m_im->data(m_im->index(m_index.row(),9)).toInt() == 1 && m_im->data(m_im->index(m_index.row(),10)).toInt() == 0){
         checkAutoDNS->setChecked(false);
         on_checkAutoDNS_clicked(false);
         dns->setText(m_im->data(m_im->index(m_index.row(),6)).toString());
-    }else if(m_im->data(m_im->index(m_index.row(),8)).toInt() == 1 && m_im->data(m_im->index(m_index.row(),9)).toInt() == 1){
+    }else if(m_im->data(m_im->index(m_index.row(),9)).toInt() == 1 && m_im->data(m_im->index(m_index.row(),10)).toInt() == 1){
         checkAutoDNS->setChecked(true);
         on_checkAutoDNS_clicked(true);
     }
-    if(m_im->data(m_im->index(m_index.row(),10)).toInt() == 1){
+    if(m_im->data(m_im->index(m_index.row(),11)).toInt() == 1){
         checkAutoWINS->setChecked(true);
         on_checkAutoWINS_clicked(true);
     }else{
@@ -76,20 +76,21 @@ bool AddEditNetworkInterface::compareAuto(QCheckBox *autoCheck, int dbData)
 
 bool AddEditNetworkInterface::dataIsChanged()
 {
-    if(name->text() != m_im->data(m_im->index(m_index.row(),2)).toString() || !compareAuto(checkAutoIP,m_im->data(m_im->index(m_index.row(),8)).toInt()) ||
-            !compareAuto(checkAutoDNS,m_im->data(m_im->index(m_index.row(),9)).toInt()) ||
-            !compareAuto(checkAutoWINS,m_im->data(m_im->index(m_index.row(),10)).toInt()))
+    if(name->text() != m_im->data(m_im->index(m_index.row(),2)).toString() || !compareAuto(checkAutoIP,m_im->data(m_im->index(m_index.row(),9)).toInt()) ||
+            !compareAuto(checkAutoDNS,m_im->data(m_im->index(m_index.row(),10)).toInt()) ||
+            !compareAuto(checkAutoWINS,m_im->data(m_im->index(m_index.row(),11)).toInt()) ||
+            note->toPlainText() != m_im->data(m_im->index(m_index.row(),8)).toString())
         return true;
-    if(m_im->data(m_im->index(m_index.row(),8)).toInt() == 0){
+    if(m_im->data(m_im->index(m_index.row(),9)).toInt() == 0){
         if(m_im->data(m_im->index(m_index.row(),3)).toString() != ip->text() || m_im->data(m_im->index(m_index.row(),4)).toString() != maska->text() ||
                 m_im->data(m_im->index(m_index.row(),5)).toString() != gate->text())
             return true;
     }
-    if(m_im->data(m_im->index(m_index.row(),9)).toInt() == 0){
+    if(m_im->data(m_im->index(m_index.row(),10)).toInt() == 0){
         if(m_im->data(m_im->index(m_index.row(),6)).toString() != dns->text())
             return true;
     }
-    if(m_im->data(m_im->index(m_index.row(),10)).toInt() == 0){
+    if(m_im->data(m_im->index(m_index.row(),11)).toInt() == 0){
         if(m_im->data(m_im->index(m_index.row(),7)).toString() != wins->text())
             return true;
     }
@@ -122,7 +123,10 @@ void AddEditNetworkInterface::on_checkAutoIP_clicked(bool checked)
     if(m_editMode){
         if(dataIsChanged()){
             buttonRevert->setEnabled(true);
-            buttonSave->setEnabled(true);
+            if(!name->text().isNull() && !name->text().isEmpty())
+                buttonSave->setEnabled(true);
+            else
+                buttonSave->setEnabled(false);
         }else{
             buttonRevert->setEnabled(false);
             buttonSave->setEnabled(false);
@@ -142,7 +146,10 @@ void AddEditNetworkInterface::on_checkAutoDNS_clicked(bool checked)
     if(m_editMode){
         if(dataIsChanged()){
             buttonRevert->setEnabled(true);
-            buttonSave->setEnabled(true);
+            if(!name->text().isNull() && !name->text().isEmpty())
+                buttonSave->setEnabled(true);
+            else
+                buttonSave->setEnabled(false);
         }else{
             buttonRevert->setEnabled(false);
             buttonSave->setEnabled(false);
@@ -162,7 +169,6 @@ void AddEditNetworkInterface::on_checkAutoWINS_clicked(bool checked)
     if(m_editMode){
         if(dataIsChanged()){
             buttonRevert->setEnabled(true);
-            buttonSave->setEnabled(true);
         }else{
             buttonRevert->setEnabled(false);
             buttonSave->setEnabled(false);
@@ -176,141 +182,182 @@ void AddEditNetworkInterface::on_buttonSave_clicked()
         if(checkAutoIP->isChecked()){
             if(checkAutoDNS->isChecked()){
                 if(checkAutoWINS->isChecked()){
-                    m_im->insertRecord(m_networkDataId,name->text());
-                    if (m_im->lastError().type() != QSqlError::NoError)
-                    {
-                        QMessageBox::warning(this, tr("Ошибка"),
-                                             tr("Не удалось сохранить данные интерфейса:\n %1")
-                                                 .arg(m_im->lastError().text()),
-                                                 tr("Закрыть"));
-                        return;
-                    }
+                    m_im->insertRow(m_im->rowCount());
+                    if(m_deviceId != -1)
+                        m_im->setData(m_im->index(m_im->rowCount()-1,1),m_deviceId);
+                    m_im->setData(m_im->index(m_im->rowCount()-1,2),name->text());
+                    m_im->setData(m_im->index(m_im->rowCount()-1,3),tr("Авто"));
+                    m_im->setData(m_im->index(m_im->rowCount()-1,4),tr("Авто"));
+                    m_im->setData(m_im->index(m_im->rowCount()-1,5),tr("Авто"));
+                    m_im->setData(m_im->index(m_im->rowCount()-1,6),tr("Авто"));
+                    m_im->setData(m_im->index(m_im->rowCount()-1,7),tr("Авто"));
+                    m_im->setData(m_im->index(m_im->rowCount()-1,8),note->toPlainText());
+                    m_im->setData(m_im->index(m_im->rowCount()-1,9),1);
+                    m_im->setData(m_im->index(m_im->rowCount()-1,10),1);
+                    m_im->setData(m_im->index(m_im->rowCount()-1,11),1);
                 }else{
-                    m_im->insertRecord(m_networkDataId,name->text(),"","","","",wins->text(),1,1,0);
-                    if (m_im->lastError().type() != QSqlError::NoError)
-                    {
-                        QMessageBox::warning(this, tr("Ошибка"),
-                                             tr("Не удалось сохранить данные интерфейса:\n %1")
-                                                 .arg(m_im->lastError().text()),
-                                                 tr("Закрыть"));
-                        return;
-                    }
+                    m_im->insertRow(m_im->rowCount());
+                    if(m_deviceId != -1)
+                        m_im->setData(m_im->index(m_im->rowCount()-1,1),m_deviceId);
+                    m_im->setData(m_im->index(m_im->rowCount()-1,2),name->text());
+                    m_im->setData(m_im->index(m_im->rowCount()-1,3),tr("Авто"));
+                    m_im->setData(m_im->index(m_im->rowCount()-1,4),tr("Авто"));
+                    m_im->setData(m_im->index(m_im->rowCount()-1,5),tr("Авто"));
+                    m_im->setData(m_im->index(m_im->rowCount()-1,6),tr("Авто"));
+                    m_im->setData(m_im->index(m_im->rowCount()-1,7),wins->text());
+                    m_im->setData(m_im->index(m_im->rowCount()-1,8),note->toPlainText());
+                    m_im->setData(m_im->index(m_im->rowCount()-1,9),1);
+                    m_im->setData(m_im->index(m_im->rowCount()-1,10),1);
+                    m_im->setData(m_im->index(m_im->rowCount()-1,11),0);
                 }
             }else{
                 if(checkAutoWINS->isChecked()){
-                    m_im->insertRecord(m_networkDataId,name->text(),"","","",dns->text(),"",1,0,1);
-                    if (m_im->lastError().type() != QSqlError::NoError)
-                    {
-                        QMessageBox::warning(this, tr("Ошибка"),
-                                             tr("Не удалось сохранить данные интерфейса:\n %1")
-                                                 .arg(m_im->lastError().text()),
-                                                 tr("Закрыть"));
-                        return;
-                    }
+                    m_im->insertRow(m_im->rowCount());
+                    if(m_deviceId != -1)
+                        m_im->setData(m_im->index(m_im->rowCount()-1,1),m_deviceId);
+                    m_im->setData(m_im->index(m_im->rowCount()-1,2),name->text());
+                    m_im->setData(m_im->index(m_im->rowCount()-1,3),tr("Авто"));
+                    m_im->setData(m_im->index(m_im->rowCount()-1,4),tr("Авто"));
+                    m_im->setData(m_im->index(m_im->rowCount()-1,5),tr("Авто"));
+                    m_im->setData(m_im->index(m_im->rowCount()-1,6),dns->text());
+                    m_im->setData(m_im->index(m_im->rowCount()-1,7),tr("Авто"));
+                    m_im->setData(m_im->index(m_im->rowCount()-1,8),note->toPlainText());
+                    m_im->setData(m_im->index(m_im->rowCount()-1,9),1);
+                    m_im->setData(m_im->index(m_im->rowCount()-1,10),0);
+                    m_im->setData(m_im->index(m_im->rowCount()-1,11),1);
                 }else{
-                    m_im->insertRecord(m_networkDataId,name->text(),"","","",dns->text(),wins->text(),1,0,0);
-                    if (m_im->lastError().type() != QSqlError::NoError)
-                    {
-                        QMessageBox::warning(this, tr("Ошибка"),
-                                             tr("Не удалось сохранить данные интерфейса:\n %1")
-                                                 .arg(m_im->lastError().text()),
-                                                 tr("Закрыть"));
-                        return;
-                    }
+                    m_im->insertRow(m_im->rowCount());
+                    if(m_deviceId != -1)
+                        m_im->setData(m_im->index(m_im->rowCount()-1,1),m_deviceId);
+                    m_im->setData(m_im->index(m_im->rowCount()-1,2),name->text());
+                    m_im->setData(m_im->index(m_im->rowCount()-1,3),tr("Авто"));
+                    m_im->setData(m_im->index(m_im->rowCount()-1,4),tr("Авто"));
+                    m_im->setData(m_im->index(m_im->rowCount()-1,5),tr("Авто"));
+                    m_im->setData(m_im->index(m_im->rowCount()-1,6),dns->text());
+                    m_im->setData(m_im->index(m_im->rowCount()-1,7),wins->text());
+                    m_im->setData(m_im->index(m_im->rowCount()-1,8),note->toPlainText());
+                    m_im->setData(m_im->index(m_im->rowCount()-1,9),1);
+                    m_im->setData(m_im->index(m_im->rowCount()-1,10),0);
+                    m_im->setData(m_im->index(m_im->rowCount()-1,11),0);
                 }
             }
         }else{
             if(checkAutoWINS->isChecked()){
-                m_im->insertRecord(m_networkDataId,name->text(),ip->text(),maska->text(),gate->text(),dns->text(),"",0,0,1);
-                if (m_im->lastError().type() != QSqlError::NoError)
-                {
-                    QMessageBox::warning(this, tr("Ошибка"),
-                                         tr("Не удалось сохранить данные интерфейса:\n %1")
-                                             .arg(m_im->lastError().text()),
-                                             tr("Закрыть"));
-                    return;
-                }
+                m_im->insertRow(m_im->rowCount());
+                if(m_deviceId != -1)
+                    m_im->setData(m_im->index(m_im->rowCount()-1,1),m_deviceId);
+                m_im->setData(m_im->index(m_im->rowCount()-1,2),name->text());
+                m_im->setData(m_im->index(m_im->rowCount()-1,3),ip->text());
+                m_im->setData(m_im->index(m_im->rowCount()-1,4),maska->text());
+                m_im->setData(m_im->index(m_im->rowCount()-1,5),gate->text());
+                m_im->setData(m_im->index(m_im->rowCount()-1,6),dns->text());
+                m_im->setData(m_im->index(m_im->rowCount()-1,7),tr("Авто"));
+                m_im->setData(m_im->index(m_im->rowCount()-1,8),note->toPlainText());
+                m_im->setData(m_im->index(m_im->rowCount()-1,9),0);
+                m_im->setData(m_im->index(m_im->rowCount()-1,10),0);
+                m_im->setData(m_im->index(m_im->rowCount()-1,11),1);
             }else{
-                m_im->insertRecord(m_networkDataId,name->text(),ip->text(),maska->text(),gate->text(),dns->text(),wins->text(),0,0,0);
-                if (m_im->lastError().type() != QSqlError::NoError)
-                {
-                    QMessageBox::warning(this, tr("Ошибка"),
-                                         tr("Не удалось сохранить данные интерфейса:\n %1")
-                                             .arg(m_im->lastError().text()),
-                                             tr("Закрыть"));
-                    return;
-                }
+                m_im->insertRow(m_im->rowCount());
+                if(m_deviceId != -1)
+                    m_im->setData(m_im->index(m_im->rowCount()-1,1),m_deviceId);
+                m_im->setData(m_im->index(m_im->rowCount()-1,2),name->text());
+                m_im->setData(m_im->index(m_im->rowCount()-1,3),ip->text());
+                m_im->setData(m_im->index(m_im->rowCount()-1,4),maska->text());
+                m_im->setData(m_im->index(m_im->rowCount()-1,5),gate->text());
+                m_im->setData(m_im->index(m_im->rowCount()-1,6),dns->text());
+                m_im->setData(m_im->index(m_im->rowCount()-1,7),wins->text());
+                m_im->setData(m_im->index(m_im->rowCount()-1,8),note->toPlainText());
+                m_im->setData(m_im->index(m_im->rowCount()-1,9),0);
+                m_im->setData(m_im->index(m_im->rowCount()-1,10),0);
+                m_im->setData(m_im->index(m_im->rowCount()-1,11),0);
             }
         }
     }else{
-        int interfaceId = m_im->data(m_im->index(m_index.row(),0)).toInt();
         if(checkAutoIP->isChecked()){
             if(checkAutoDNS->isChecked()){
                 if(checkAutoWINS->isChecked()){
-                    m_im->updateRecord(interfaceId,0,name->text());
-                    if (m_im->lastError().type() != QSqlError::NoError)
-                    {
-                        QMessageBox::warning(this, tr("Ошибка"),
-                                             tr("Не удалось сохранить данные интерфейса:\n %1")
-                                                 .arg(m_im->lastError().text()),
-                                                 tr("Закрыть"));
-                        return;
-                    }
+                    if(m_deviceId != -1)
+                        m_im->setData(m_im->index(m_im->rowCount()-1,1),m_deviceId);
+                    m_im->setData(m_im->index(m_index.row(),2),name->text());
+                    m_im->setData(m_im->index(m_index.row(),3),tr("Авто"));
+                    m_im->setData(m_im->index(m_index.row(),4),tr("Авто"));
+                    m_im->setData(m_im->index(m_index.row(),5),tr("Авто"));
+                    m_im->setData(m_im->index(m_index.row(),6),tr("Авто"));
+                    m_im->setData(m_im->index(m_index.row(),7),tr("Авто"));
+                    m_im->setData(m_im->index(m_index.row(),8),note->toPlainText());
+                    m_im->setData(m_im->index(m_index.row(),9),1);
+                    m_im->setData(m_im->index(m_index.row(),10),1);
+                    m_im->setData(m_im->index(m_index.row(),11),1);
                 }else{
-                    m_im->updateRecord(interfaceId,0,name->text(),"","","","",wins->text(),1,1,0);
-                    if (m_im->lastError().type() != QSqlError::NoError)
-                    {
-                        QMessageBox::warning(this, tr("Ошибка"),
-                                             tr("Не удалось сохранить данные интерфейса:\n %1")
-                                                 .arg(m_im->lastError().text()),
-                                                 tr("Закрыть"));
-                        return;
-                    }
+                    if(m_deviceId != -1)
+                        m_im->setData(m_im->index(m_im->rowCount()-1,1),m_deviceId);
+                    m_im->setData(m_im->index(m_index.row(),2),name->text());
+                    m_im->setData(m_im->index(m_index.row(),3),tr("Авто"));
+                    m_im->setData(m_im->index(m_index.row(),4),tr("Авто"));
+                    m_im->setData(m_im->index(m_index.row(),5),tr("Авто"));
+                    m_im->setData(m_im->index(m_index.row(),6),tr("Авто"));
+                    m_im->setData(m_im->index(m_index.row(),7),wins->text());
+                    m_im->setData(m_im->index(m_index.row(),8),note->toPlainText());
+                    m_im->setData(m_im->index(m_index.row(),9),1);
+                    m_im->setData(m_im->index(m_index.row(),10),1);
+                    m_im->setData(m_im->index(m_index.row(),11),0);
                 }
             }else{
                 if(checkAutoWINS->isChecked()){
-                    m_im->updateRecord(interfaceId,0,name->text(),"","","",dns->text(),"",1,0,1);
-                    if (m_im->lastError().type() != QSqlError::NoError)
-                    {
-                        QMessageBox::warning(this, tr("Ошибка"),
-                                             tr("Не удалось сохранить данные интерфейса:\n %1")
-                                                 .arg(m_im->lastError().text()),
-                                                 tr("Закрыть"));
-                        return;
-                    }
+                    if(m_deviceId != -1)
+                        m_im->setData(m_im->index(m_im->rowCount()-1,1),m_deviceId);
+                    m_im->setData(m_im->index(m_index.row(),2),name->text());
+                    m_im->setData(m_im->index(m_index.row(),3),tr("Авто"));
+                    m_im->setData(m_im->index(m_index.row(),4),tr("Авто"));
+                    m_im->setData(m_im->index(m_index.row(),5),tr("Авто"));
+                    m_im->setData(m_im->index(m_index.row(),6),dns->text());
+                    m_im->setData(m_im->index(m_index.row(),7),tr("Авто"));
+                    m_im->setData(m_im->index(m_index.row(),8),note->toPlainText());
+                    m_im->setData(m_im->index(m_index.row(),9),1);
+                    m_im->setData(m_im->index(m_index.row(),10),0);
+                    m_im->setData(m_im->index(m_index.row(),11),1);
                 }else{
-                    m_im->updateRecord(interfaceId,0,name->text(),"","","",dns->text(),wins->text(),1,0,0);
-                    if (m_im->lastError().type() != QSqlError::NoError)
-                    {
-                        QMessageBox::warning(this, tr("Ошибка"),
-                                             tr("Не удалось сохранить данные интерфейса:\n %1")
-                                                 .arg(m_im->lastError().text()),
-                                                 tr("Закрыть"));
-                        return;
-                    }
+                    if(m_deviceId != -1)
+                        m_im->setData(m_im->index(m_im->rowCount()-1,1),m_deviceId);
+                    m_im->setData(m_im->index(m_index.row(),2),name->text());
+                    m_im->setData(m_im->index(m_index.row(),3),tr("Авто"));
+                    m_im->setData(m_im->index(m_index.row(),4),tr("Авто"));
+                    m_im->setData(m_im->index(m_index.row(),5),tr("Авто"));
+                    m_im->setData(m_im->index(m_index.row(),6),dns->text());
+                    m_im->setData(m_im->index(m_index.row(),7),wins->text());
+                    m_im->setData(m_im->index(m_index.row(),8),note->toPlainText());
+                    m_im->setData(m_im->index(m_index.row(),9),1);
+                    m_im->setData(m_im->index(m_index.row(),10),0);
+                    m_im->setData(m_im->index(m_index.row(),11),0);
                 }
             }
         }else{
             if(checkAutoWINS->isChecked()){
-                m_im->updateRecord(interfaceId,0,name->text(),ip->text(),maska->text(),gate->text(),dns->text(),"",0,0,1);
-                if (m_im->lastError().type() != QSqlError::NoError)
-                {
-                    QMessageBox::warning(this, tr("Ошибка"),
-                                         tr("Не удалось сохранить данные интерфейса:\n %1")
-                                             .arg(m_im->lastError().text()),
-                                             tr("Закрыть"));
-                    return;
-                }
+                if(m_deviceId != -1)
+                    m_im->setData(m_im->index(m_im->rowCount()-1,1),m_deviceId);
+                m_im->setData(m_im->index(m_index.row(),2),name->text());
+                m_im->setData(m_im->index(m_index.row(),3),ip->text());
+                m_im->setData(m_im->index(m_index.row(),4),maska->text());
+                m_im->setData(m_im->index(m_index.row(),5),gate->text());
+                m_im->setData(m_im->index(m_index.row(),6),dns->text());
+                m_im->setData(m_im->index(m_index.row(),7),tr("Авто"));
+                m_im->setData(m_im->index(m_index.row(),8),note->toPlainText());
+                m_im->setData(m_im->index(m_index.row(),9),0);
+                m_im->setData(m_im->index(m_index.row(),10),0);
+                m_im->setData(m_im->index(m_index.row(),11),1);
             }else{
-                m_im->updateRecord(interfaceId,0,name->text(),ip->text(),maska->text(),gate->text(),dns->text(),wins->text(),0,0,0);
-                if (m_im->lastError().type() != QSqlError::NoError)
-                {
-                    QMessageBox::warning(this, tr("Ошибка"),
-                                         tr("Не удалось сохранить данные интерфейса:\n %1")
-                                             .arg(m_im->lastError().text()),
-                                             tr("Закрыть"));
-                    return;
-                }
+                if(m_deviceId != -1)
+                    m_im->setData(m_im->index(m_im->rowCount()-1,1),m_deviceId);
+                m_im->setData(m_im->index(m_index.row(),2),name->text());
+                m_im->setData(m_im->index(m_index.row(),3),ip->text());
+                m_im->setData(m_im->index(m_index.row(),4),maska->text());
+                m_im->setData(m_im->index(m_index.row(),5),gate->text());
+                m_im->setData(m_im->index(m_index.row(),6),dns->text());
+                m_im->setData(m_im->index(m_index.row(),7),wins->text());
+                m_im->setData(m_im->index(m_index.row(),8),note->toPlainText());
+                m_im->setData(m_im->index(m_index.row(),9),0);
+                m_im->setData(m_im->index(m_index.row(),10),0);
+                m_im->setData(m_im->index(m_index.row(),11),0);
             }
         }
     }
@@ -348,7 +395,10 @@ void AddEditNetworkInterface::on_ip_textEdited()
     if(m_editMode){
         if(dataIsChanged()){
             buttonRevert->setEnabled(true);
-            buttonSave->setEnabled(true);
+            if(!name->text().isNull() && !name->text().isEmpty())
+                buttonSave->setEnabled(true);
+            else
+                buttonSave->setEnabled(false);
         }else{
             buttonRevert->setEnabled(false);
             buttonSave->setEnabled(false);
@@ -361,7 +411,10 @@ void AddEditNetworkInterface::on_maska_textEdited()
     if(m_editMode){
         if(dataIsChanged()){
             buttonRevert->setEnabled(true);
-            buttonSave->setEnabled(true);
+            if(!name->text().isNull() && !name->text().isEmpty())
+                buttonSave->setEnabled(true);
+            else
+                buttonSave->setEnabled(false);
         }else{
             buttonRevert->setEnabled(false);
             buttonSave->setEnabled(false);
@@ -374,7 +427,10 @@ void AddEditNetworkInterface::on_gate_textEdited()
     if(m_editMode){
         if(dataIsChanged()){
             buttonRevert->setEnabled(true);
-            buttonSave->setEnabled(true);
+            if(!name->text().isNull() && !name->text().isEmpty())
+                buttonSave->setEnabled(true);
+            else
+                buttonSave->setEnabled(false);
         }else{
             buttonRevert->setEnabled(false);
             buttonSave->setEnabled(false);
@@ -387,7 +443,10 @@ void AddEditNetworkInterface::on_dns_textEdited()
     if(m_editMode){
         if(dataIsChanged()){
             buttonRevert->setEnabled(true);
-            buttonSave->setEnabled(true);
+            if(!name->text().isNull() && !name->text().isEmpty())
+                buttonSave->setEnabled(true);
+            else
+                buttonSave->setEnabled(false);
         }else{
             buttonRevert->setEnabled(false);
             buttonSave->setEnabled(false);
@@ -400,7 +459,10 @@ void AddEditNetworkInterface::on_wins_textEdited()
     if(m_editMode){
         if(dataIsChanged()){
             buttonRevert->setEnabled(true);
-            buttonSave->setEnabled(true);
+            if(!name->text().isNull() && !name->text().isEmpty())
+                buttonSave->setEnabled(true);
+            else
+                buttonSave->setEnabled(false);
         }else{
             buttonRevert->setEnabled(false);
             buttonSave->setEnabled(false);
@@ -411,4 +473,20 @@ void AddEditNetworkInterface::on_wins_textEdited()
 void AddEditNetworkInterface::on_buttonRevert_clicked()
 {
     setDefaultEditData();
+}
+
+void AddEditNetworkInterface::on_note_cursorPositionChanged()
+{
+    if(m_editMode){
+        if(dataIsChanged()){
+            buttonRevert->setEnabled(true);
+            if(!name->text().isNull() && !name->text().isEmpty())
+                buttonSave->setEnabled(true);
+            else
+                buttonSave->setEnabled(false);
+        }else{
+            buttonRevert->setEnabled(false);
+            buttonSave->setEnabled(false);
+        }
+    }
 }

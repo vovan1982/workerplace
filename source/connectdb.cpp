@@ -51,7 +51,12 @@ void connectDB::on_connect_DB_clicked()
                               tr("Закрыть"));
         return;
     }
-    QSqlDatabase db = QSqlDatabase::addDatabase("QMYSQL");
+    QSqlDatabase db;
+    if(QSqlDatabase::connectionNames().contains("qt_sql_default_connection")){
+        db = QSqlDatabase::database();
+    }else{
+        db = QSqlDatabase::addDatabase("QMYSQL");
+    }
     db.setDatabaseName(dataBase->currentText());
     db.setHostName(host->text());
     db.setPort(port->value());
@@ -66,6 +71,32 @@ void connectDB::on_connect_DB_clicked()
     }
     db.exec("SET NAMES utf8;");
 
+    //Проверяем версию базы данных, если при проверки версии ДБ произошла ошибка или версия не соответствует, вход в программу не выполняется
+    QSqlQuery query;
+    query.exec("SELECT DbVersion FROM Settings");
+    if (query.lastError().type() != QSqlError::NoError){
+        QMessageBox::critical(this, tr("Ошибка"),
+                                 tr("Не удалось получить версию базы данных!!!\n %1")
+                                 .arg(query.lastError().text()),
+                                 tr("Закрыть"));
+        return;
+    }
+    if(query.size() > 0){
+        query.next();
+        if(query.value(0).toInt() != 1){
+            QMessageBox::critical(this, tr("Ошибка"),
+                                     tr("Текущая версия базы данных не соответствует требуемой!!!\nОбновите программу или базу данных."),
+                                     tr("Закрыть"));
+            return;
+        }
+    }else{
+        QMessageBox::critical(this, tr("Ошибка"),
+                                 tr("Не удалось получить версию базы данных!!!"),
+                                 tr("Закрыть"));
+        return;
+    }
+
+    // Сохраняем текущие данные в файл
     QSettings settings( QApplication::applicationDirPath()+"/connection.ini", QSettings::IniFormat );
     settings.beginGroup( "Connection" );
     settings.setValue( "DatabaseName", dataBase->currentText() );

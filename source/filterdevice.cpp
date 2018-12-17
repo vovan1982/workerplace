@@ -1,13 +1,12 @@
 #include <QtSql>
-#include <QDebug>
-#include <QMessageBox>
 #include <QSpinBox>
-#include <QDoubleSpinBox>
 #include <QDateEdit>
-#include "headers/filterdevice.h"
+#include <QMessageBox>
+#include <QDoubleSpinBox>
 #include "headers/producers.h"
 #include "headers/providers.h"
 #include "headers/edittable.h"
+#include "headers/filterdevice.h"
 #include "headers/selectworkplace.h"
 #include "headers/selectdepartment.h"
 
@@ -18,23 +17,19 @@ FilterDevice::FilterDevice(QWidget *parent, bool locationIsSet, bool onlyHardwar
     m_onlyOrgTexMode(onlyOrgTexMode)
 {
     setupUi(this);
-    filterType->addItem(tr("<Выберите вид устройства>"));
-    filterType->addItem(tr("Оргтехника"),1);
-    filterType->addItem(tr("Комплектующее"),0);
-    if(onlyHardwareMode){
-        populateCBox("CodTypeDevice","typedevice","Type = 0",tr("<Выберите тип устройства>"),filterTypeDevice);
-        filterType->setCurrentIndex(2);
-        filterType->setEnabled(false);
-    }else if(onlyOrgTexMode){
-        populateCBox("CodTypeDevice","typedevice","Type = 1",tr("<Выберите тип устройства>"),filterTypeDevice);
-        filterType->setCurrentIndex(1);
-        filterType->setEnabled(false);
-    }else
-        populateCBox("CodTypeDevice","typedevice","",tr("<Выберите тип устройства>"),filterTypeDevice);
+
+    if(onlyHardwareMode && !onlyOrgTexMode){
+        showDeviceComposition->setEnabled(false);
+    }else if(!onlyHardwareMode && onlyOrgTexMode){
+        showDeviceComposition->setEnabled(false);
+        showDeviceParent->setEnabled(false);
+    }
+
     if(locationIsSet){
         groupBox->setVisible(false);
         label->setVisible(false);
         filterWorkPlace->setVisible(false);
+        additionalFilteringRules->setChecked(true);
     }
     selectDepIsFirm = false;
     items = initItemAdditionalFilter();
@@ -98,12 +93,6 @@ void FilterDevice::delFilterRow()
                 }
             }
         }
-//    if(curRow == 0){
-//        QGridLayout *t = qobject_cast<QGridLayout *>(rowsFilterVerticalLayout->itemAt(0)->layout());
-//        QComboBox *cbox = qobject_cast<QComboBox *>(t->itemAtPosition(0,0)->widget());
-//        cbox->setEnabled(false);
-//        cbox->setCurrentIndex(1);
-//    }
 }
 
 QList< QList<ItemComboBox> > FilterDevice::initItemAdditionalFilter()
@@ -117,18 +106,23 @@ QList< QList<ItemComboBox> > FilterDevice::initItemAdditionalFilter()
     item.name = tr("и"); item.data = " AND "; groupItem<<item;
     initItems<<groupItem; groupItem.clear();
 
-    // group group item index 1
-    item.name = tr("Наименование"); item.data = "dev.Name"; groupItem<<item;
-    item.name = tr("Инв №"); item.data = "dev.InventoryN"; groupItem<<item;
-    item.name = tr("Серийный №"); item.data = "dev.SerialN"; groupItem<<item;
-    item.name = tr("Производитель"); item.data = "dev.CodProducer"; groupItem<<item;
-    item.name = tr("Поставщик"); item.data = "dev.CodProvider"; groupItem<<item;
-    item.name = tr("Дата покупки"); item.data = "dev.DatePurchase"; groupItem<<item;
-    item.name = tr("Дата оприходования"); item.data = "dev.DatePosting"; groupItem<<item;
-    item.name = tr("Конец гарантии"); item.data = "dev.EndGuarantee"; groupItem<<item;
-    item.name = tr("Стоимость"); item.data = "dev.Price"; groupItem<<item;
-    item.name = tr("Состояние"); item.data = "dev.CodState"; groupItem<<item;
-    item.name = tr("Примечание"); item.data = "dev.Note"; groupItem<<item;
+    // group item index 1
+    item.name = tr("Вид устройства"); item.data = "typedevice.Type"; groupItem<<item; // 0
+    item.name = tr("Тип устройства"); item.data = "dev.CodTypeDevice"; groupItem<<item; // 1
+    item.name = tr("Наименование"); item.data = "dev.Name"; groupItem<<item; // 0
+    item.name = tr("Сетевое имя"); item.data = "dev.NetworkName"; groupItem<<item; // 1
+    item.name = tr("Домен/Рабочая группа"); item.data = "dev.CodDomainWg"; groupItem<<item; // 2
+    item.name = tr("Инв №"); item.data = "dev.InventoryN"; groupItem<<item; // 1
+    item.name = tr("Серийный №"); item.data = "dev.SerialN"; groupItem<<item; // 2
+    item.name = tr("Производитель"); item.data = "dev.CodProducer"; groupItem<<item; // 3
+    item.name = tr("Поставщик"); item.data = "dev.CodProvider"; groupItem<<item; // 4
+    item.name = tr("Дата покупки"); item.data = "dev.DatePurchase"; groupItem<<item; // 5
+    item.name = tr("Дата оприходования"); item.data = "dev.DatePosting"; groupItem<<item; // 6
+    item.name = tr("Конец гарантии"); item.data = "dev.EndGuarantee"; groupItem<<item; // 7
+    item.name = tr("Стоимость"); item.data = "dev.Price"; groupItem<<item; // 8
+    item.name = tr("Состояние"); item.data = "dev.CodState"; groupItem<<item; // 9
+    item.name = tr("Примечание"); item.data = "dev.Note"; groupItem<<item; // 10
+    item.name = tr("Детальное описание"); item.data = "dev.DetailDescription"; groupItem<<item; // 13
     initItems<<groupItem; groupItem.clear();
 
     // group item index 2
@@ -181,11 +175,11 @@ void FilterDevice::insertRowInAdditionalFilter(int index)
     populateComboBoxAdditionalFilter(w0,items,0);
     rg->addWidget(w0,0,0,1,1);
     w0->show();
-//    if(index == 0){w0->setEnabled(false); w0->setCurrentIndex(1);}
     QComboBox *w1 = new QComboBox(scrollAreaWidgetContents);
     w1->setAttribute(Qt::WA_DeleteOnClose);
     w1->setProperty("curRow",index);
     populateComboBoxAdditionalFilter(w1,items,1);
+    w1->setCurrentIndex(2);
     connect(w1,SIGNAL(currentIndexChanged(int)),this,SLOT(fieldAdditionalFilterChanget(int)));
     rg->addWidget(w1,0,1,1,1);
     w1->show();
@@ -238,7 +232,8 @@ void FilterDevice::populateCBox(const QString &idName, const QString &tableName,
                             const QString &filter, const QString &nullStr, QComboBox *cBox)
 {
     cBox->clear();
-    cBox->addItem(nullStr);
+    if(!nullStr.isNull() && !nullStr.isEmpty())
+        cBox->addItem(nullStr);
     QSqlQuery query;
     if(filter.isNull() || filter.isEmpty())
         query.exec(QString("SELECT %2,name FROM %1;").arg(tableName).arg(idName));
@@ -264,39 +259,62 @@ void FilterDevice::fieldAdditionalFilterChanget(int index)
     QComboBox *cbox = qobject_cast<QComboBox *>(t->itemAtPosition(0,2)->widget());
 
     switch(index){
-    case 0:
+    case 2:
         populateComboBoxAdditionalFilter(cbox,items,3);
         break;
-    case 1: case 2: case 3: case 4:
+    case 4: case 5: case 6: case 7: case 8:
         populateComboBoxAdditionalFilter(cbox,items,4);
         break;
-    case 5: case 6: case 7:
+    case 9: case 10: case 11:
         populateComboBoxAdditionalFilter(cbox,items,7);
         break;
-    case 8:
+    case 12:
         populateComboBoxAdditionalFilter(cbox,items,6);
         break;
-    case 9:
+    case 0: case 1: case 13:
         populateComboBoxAdditionalFilter(cbox,items,2);
         break;
-    case 10:
+    case 3: case 14: case 15:
         populateComboBoxAdditionalFilter(cbox,items,5);
         break;
     }
     QWidget *w = t->itemAtPosition(0,3)->widget();
     t->removeWidget(w);
     w->close();
-    if((index >= 0 && index <= 4) || index == 9 || index == 10){
+    if(index == 0 || index == 1){
+        QComboBox *cb = new QComboBox(scrollAreaWidgetContents);
+        cb->setAttribute(Qt::WA_DeleteOnClose);
+        if(index == 0){
+            if(m_onlyHardwareMode && !m_onlyOrgTexMode)
+                cb->addItem(tr("Комплектующее"),0);
+            else if(m_onlyOrgTexMode && !m_onlyHardwareMode)
+                cb->addItem(tr("Оргтехника"),1);
+            else{
+                cb->addItem(tr("Оргтехника"),1);
+                cb->addItem(tr("Комплектующее"),0);
+            }
+        }else{
+            if(m_onlyHardwareMode && !m_onlyOrgTexMode)
+                populateCBox("CodTypeDevice","typedevice","Type = 0","",cb);
+            else if(m_onlyOrgTexMode && !m_onlyHardwareMode)
+                populateCBox("CodTypeDevice","typedevice","Type = 1","",cb);
+            else
+                populateCBox("CodTypeDevice","typedevice","","",cb);
+        }
+        t->addWidget(cb,0,3,1,1);
+        cb->show();
+    }
+    if((index >= 2 && index <= 8) || index == 13 || index == 14 || index == 15){
         QLineEdit *le = new QLineEdit(scrollAreaWidgetContents);
         le->setAttribute(Qt::WA_DeleteOnClose);
-        if(index == 10 || (index >=0 && index <=2))
+        if(index == 2 || index == 3 || index == 5 || index == 6 || index == 14 || index == 15)
             le->setReadOnly(false);
         else
             le->setReadOnly(true);
         t->addWidget(le,0,3,1,1);
         le->show();
     }
-    if(index == 5 || index == 6 || index == 7){
+    if(index == 9 || index == 10 || index == 11){
         QDateEdit *de = new QDateEdit(scrollAreaWidgetContents);
         de->setAttribute(Qt::WA_DeleteOnClose);
         de->setDisplayFormat("dd.MM.yyyy");
@@ -305,7 +323,7 @@ void FilterDevice::fieldAdditionalFilterChanget(int index)
         t->addWidget(de,0,3,1,1);
         de->show();
     }
-    if(index == 8){
+    if(index == 12){
         QDoubleSpinBox *dsb = new QDoubleSpinBox(scrollAreaWidgetContents);
         dsb->setAttribute(Qt::WA_DeleteOnClose);
         dsb->setMaximum(99999.99);
@@ -314,13 +332,14 @@ void FilterDevice::fieldAdditionalFilterChanget(int index)
         dsb->show();
     }
     QToolButton *tb = qobject_cast<QToolButton *>(t->itemAtPosition(0,4)->widget());
-    if(index == 3 || index == 4 || index == 9){
+    if(index == 4 || index == 7 || index == 8 || index == 13){
         tb->setEnabled(true);
         tb->setProperty("curIndex",index);
         switch(index){
-        case 3: tb->setIcon(QIcon(":/128x128/producers/ico/producers_128x128.png")); break;
-        case 4: tb->setIcon(QIcon(":/128x128/providers/ico/providers_128x128.png")); break;
-        case 9: tb->setIcon(QIcon(":/22x22/book/ico/bookcase_22x22.png")); break;
+        case 4: tb->setIcon(QIcon(":/16x16/book/ico/book_open_16x16.png")); break;
+        case 7: tb->setIcon(QIcon(":/128x128/producers/ico/producers_128x128.png")); break;
+        case 8: tb->setIcon(QIcon(":/128x128/providers/ico/providers_128x128.png")); break;
+        case 13: tb->setIcon(QIcon(":/22x22/book/ico/bookcase_22x22.png")); break;
         }
     }else{
         tb->setEnabled(false);
@@ -343,7 +362,16 @@ void FilterDevice::additionalButton_clicked()
 {
     int index = sender()->property("curIndex").toInt();
     switch(index){
-    case 3:{
+    case 4:{
+        CeditTable *et = new CeditTable(this,QString("domainwg"),true);
+        et->setWindowTitle(tr("Домен/Рабочая группа"));
+        et->setProperty("curRow",sender()->property("curRow").toInt());
+        et->setProperty("isTree",0);
+        connect(et,SIGNAL(selectedRowData(QList<QVariant>)),this,SLOT(setSelectedDataAdditionalFilter(QList<QVariant>)));
+        et->exec();
+    }
+        break;
+    case 7:{
         QDialog *d = new QDialog(this);
         d->setWindowTitle(tr("Производители"));
         QVBoxLayout *layout = new QVBoxLayout;
@@ -361,7 +389,7 @@ void FilterDevice::additionalButton_clicked()
         d->adjustSize();
     }
         break;
-    case 4:{
+    case 8:{
         QDialog *d = new QDialog(this);
         d->setWindowTitle(tr("Поставщики"));
         QVBoxLayout *layout = new QVBoxLayout;
@@ -379,7 +407,7 @@ void FilterDevice::additionalButton_clicked()
         d->adjustSize();
     }
         break;
-    case 8:{
+    case 13:{
         CeditTable *et = new CeditTable(this,QString("statedev"),true);
         et->setWindowTitle(tr("Cостояния устройства"));
         et->setProperty("curRow",sender()->property("curRow").toInt());
@@ -445,16 +473,6 @@ void FilterDevice::on_filterWorkPlace_runButtonClicked()
     swp->exec();
 }
 
-void FilterDevice::on_filterType_currentIndexChanged(int index)
-{
-    if(index == 1)
-        populateCBox("CodTypeDevice","typedevice","Type = 1",tr("<Выберите тип устройства>"),filterTypeDevice);
-    else if(index == 2)
-        populateCBox("CodTypeDevice","typedevice","Type = 0",tr("<Выберите тип устройства>"),filterTypeDevice);
-    else
-        populateCBox("CodTypeDevice","typedevice","",tr("<Выберите тип устройства>"),filterTypeDevice);
-}
-
 void FilterDevice::setSelectedData(int id, const QString &name, int orgId)
 {
     if(sender()->property("objectName").toString() == "filterDepartment"){
@@ -490,25 +508,14 @@ void FilterDevice::on_setButton_clicked()
     }else if (!m_locationIsSet && !filterWorkPlace->text().isNull() && !filterWorkPlace->text().isEmpty())
         primaryFilter = QString("dev.CodWorkerPlace = %1").arg(filterWorkPlace->data().toInt());
 
-    if(filterType->currentIndex() > 0){
-        if(m_locationIsSet)
-            filter += "(";
-        filter += QString("dev.Type = %1").arg(filterType->itemData(filterType->currentIndex()).toInt());
-    }
-    if(filterTypeDevice->currentIndex() > 0){
-        if(!filter.isEmpty())
-            filter += " AND ";
-        else if(m_locationIsSet)
-            filter += "(";
-        filter += QString("dev.CodTypeDevice = %1").arg(filterTypeDevice->itemData(filterTypeDevice->currentIndex()).toInt());
-    }
-
     if(additionalFilteringRules->isChecked()){
         for(int i = 0; i < rowsFilterVerticalLayout->count();i++){
             QGridLayout *t = qobject_cast<QGridLayout *>(rowsFilterVerticalLayout->itemAt(i)->layout());
             QComboBox *filterField = qobject_cast<QComboBox *>(t->itemAtPosition(0,1)->widget());
             QComboBox *condition = qobject_cast<QComboBox *>(t->itemAtPosition(0,2)->widget());
-            if(filterField->currentIndex() != 5 && filterField->currentIndex() != 6 && filterField->currentIndex() != 7 && filterField->currentIndex() != 8){
+            if(filterField->currentIndex() != 9 && filterField->currentIndex() != 10 &&
+                    filterField->currentIndex() != 11 && filterField->currentIndex() != 12 &&
+                    filterField->currentIndex() != 0 && filterField->currentIndex() != 1){
                 if(condition->currentText() != tr("Не указано")){
                     QLineEdit *valueFilterField = qobject_cast<QLineEdit *>(t->itemAtPosition(0,3)->widget());
                     if(valueFilterField->text().isEmpty() || valueFilterField->text().isNull())
@@ -521,7 +528,14 @@ void FilterDevice::on_setButton_clicked()
             }else if(i == 0 && m_locationIsSet)
                 filter += "(";
             switch(filterField->currentIndex()){
-            case 5: case 6: case 7:{
+            case 0: case 1:{
+                QComboBox *valueFilterField = qobject_cast<QComboBox *>(t->itemAtPosition(0,3)->widget());
+                filter += QString(condition->itemData(condition->currentIndex()).toString())
+                        .arg(filterField->itemData(filterField->currentIndex()).toString())
+                        .arg(valueFilterField->currentData().toInt());
+            }
+                break;
+            case 9: case 10: case 11:{
                 QDateEdit *valueFilterField = qobject_cast<QDateEdit *>(t->itemAtPosition(0,3)->widget());
                 if(condition->currentText() != tr("Не указано"))
                     filter += QString(condition->itemData(condition->currentIndex()).toString())
@@ -531,21 +545,21 @@ void FilterDevice::on_setButton_clicked()
                     filter += QString(condition->itemData(condition->currentIndex()).toString())
                             .arg(filterField->itemData(filterField->currentIndex()).toString());
             }
-            break;
-            case 8:{
+                break;
+            case 12:{
                 QDoubleSpinBox *valueFilterField = qobject_cast<QDoubleSpinBox *>(t->itemAtPosition(0,3)->widget());
                 filter += QString(condition->itemData(condition->currentIndex()).toString())
                         .arg(filterField->itemData(filterField->currentIndex()).toString())
                         .arg(valueFilterField->value());
             }
-            break;
-            case 3: case 4: case 9:{
+                break;
+            case 4: case 7: case 8: case 13:{
                 QLineEdit *valueFilterField = qobject_cast<QLineEdit *>(t->itemAtPosition(0,3)->widget());
                 filter += QString(condition->itemData(condition->currentIndex()).toString())
                         .arg(filterField->itemData(filterField->currentIndex()).toString())
                         .arg(valueFilterField->property("data").toInt());
             }
-            break;
+                break;
             case -1: break;
             default:
                 QLineEdit *valueFilterField = qobject_cast<QLineEdit *>(t->itemAtPosition(0,3)->widget());
@@ -569,7 +583,8 @@ void FilterDevice::on_setButton_clicked()
             primaryFilter.prepend("dev.id IN "
                                   "(SELECT c.id FROM device n, devtree t, device c WHERE "
                                   "n.id IN (SELECT p.id FROM device n, devtree t, device p WHERE "
-                                  "n.id IN (SELECT id FROM device dev WHERE "+filter+") "
+                                  "n.id IN (SELECT id FROM device dev "
+                                  "LEFT OUTER JOIN typedevice ON dev.CodTypeDevice = typedevice.CodTypeDevice WHERE "+filter+") "
                                   "AND n.id = t.id AND t.parent_id = p.id GROUP BY p.id) "
                                   "AND n.id = t.parent_id AND t.id = c.id)");
         }
@@ -577,7 +592,8 @@ void FilterDevice::on_setButton_clicked()
             if (!primaryFilter.isNull() && !primaryFilter.isEmpty())
                 primaryFilter.prepend(" AND ");
             primaryFilter.prepend("dev.id IN ( SELECT c.id FROM device n, devtree t, device c WHERE "
-                                  "n.id IN  (SELECT id FROM device dev WHERE "+filter+") "
+                                  "n.id IN  (SELECT id FROM device dev "
+                                  "LEFT OUTER JOIN typedevice ON dev.CodTypeDevice = typedevice.CodTypeDevice WHERE "+filter+") "
                                   "AND n.id = t.parent_id AND t.id = c.id )");
         }
         if(!showDeviceComposition->isChecked() && showDeviceParent->isChecked()){
@@ -585,7 +601,8 @@ void FilterDevice::on_setButton_clicked()
                 primaryFilter.prepend(" AND ");
             primaryFilter.prepend("dev.id IN "
                                   "(SELECT p.id FROM device n, devtree t, device p WHERE "
-                                  "n.id IN (SELECT id FROM device dev WHERE "+filter+") "
+                                  "n.id IN (SELECT id FROM device dev "
+                                  "LEFT OUTER JOIN typedevice ON dev.CodTypeDevice = typedevice.CodTypeDevice WHERE "+filter+") "
                                   "AND n.id = t.id AND t.parent_id = p.id GROUP BY p.id)");
         }
         if(!showDeviceComposition->isChecked() && !showDeviceParent->isChecked()){
@@ -597,13 +614,4 @@ void FilterDevice::on_setButton_clicked()
     if (!primaryFilter.isNull() && !primaryFilter.isEmpty())
         emit setFilter(primaryFilter);
     this->accept();
-}
-
-void FilterDevice::on_additionalFilteringRules_clicked(bool checked)
-{
-    if(!checked){
-        if(!m_onlyHardwareMode && !m_onlyOrgTexMode)
-            filterType->setCurrentIndex(0);
-        filterTypeDevice->setCurrentIndex(0);
-    }
 }

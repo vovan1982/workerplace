@@ -12,12 +12,12 @@ class Device : public QWidget, private Ui::Device
     Q_OBJECT
     
 public:
-    explicit Device(QWidget *parent = 0, bool wpMode = false, int wpId = 0, int wpFirmId = 0, bool whMode = false, bool readOnly = false);
+    explicit Device(QWidget *parent = 0, bool wpMode = false, int wpId = 0, int wpFirmId = 0, bool readOnly = false);
 private:
     QSqlDatabase db;
     bool m_wpMode, filterIsSet;
     int m_wpId, m_wpFirmId;
-    bool m_whMode, m_readOnly;
+    bool m_readOnly;
     QString deviceFilter, wpDeviceFilter, wpName;
     DeviceModelControl *devModel;
     WorkPlaceModel *wpModel;

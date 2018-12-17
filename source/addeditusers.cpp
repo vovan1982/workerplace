@@ -103,12 +103,13 @@ void AddEditUsers::clearForm()
     name->setText("");
     middleName->setText("");
     fioSummary->setText("");
-    codAD->setValue(0);
+    codAD->setText("");
     codPost->setCurrentIndex(0);
     if(!m_wpMode)
         codFirm->setCurrentIndex(0);
     email->setText("");
     additionalemail->setText("");
+    note->setText("");
     buttonSave->setEnabled(false);
     buttonRevert->setEnabled(false);
 }
@@ -124,9 +125,16 @@ bool AddEditUsers::dataEntered()
 
 bool AddEditUsers::formIsEmpty()
 {
-    if(lastName->text() == NULL && name->text() == NULL && middleName->text() == NULL &&
-       fioSummary->text() == NULL && codPost->currentIndex() == 0 && codAD->value() == 0 &&
-       email->text() == NULL && additionalemail->text() == NULL){
+    if((lastName->text().isEmpty() || lastName->text().isNull()) &&
+            (name->text().isEmpty() || name->text().isNull()) &&
+            (middleName->text().isEmpty() || middleName->text().isNull()) &&
+            (fioSummary->text().isEmpty() || fioSummary->text().isNull()) &&
+            codPost->currentIndex() == 0 &&
+            (codAD->text().isEmpty() || codAD->text().isNull()) &&
+            (email->text().isEmpty() || email->text().isNull()) &&
+            (additionalemail->text().isEmpty() || additionalemail->text().isNull()) &&
+            (note->text().isEmpty() || note->text().isNull()))
+    {
         if(!m_wpMode && codFirm->currentIndex() == 0)
             return true;
         if(m_wpMode)
@@ -140,8 +148,9 @@ bool AddEditUsers::dataChanged()
     if(m_data.value("lastName").toString() != lastName->text() || m_data.value("name").toString() != name->text() ||
        m_data.value("middleName").toString() != middleName->text() || m_data.value("fioSummary").toString() != fioSummary->text() ||
        m_data.value("firmId").toInt() != codFirm->itemData(codFirm->currentIndex()).toInt() ||
-       m_data.value("codAD").toInt() != codAD->value() || m_data.value("codPost").toInt() != codPost->itemData(codPost->currentIndex()).toInt() ||
-       m_data.value("email").toString() != email->text() || m_data.value("additionalemail").toString() != additionalemail->text())
+       m_data.value("codAD").toString() != codAD->text() || m_data.value("codPost").toInt() != codPost->itemData(codPost->currentIndex()).toInt() ||
+       m_data.value("email").toString() != email->text() || m_data.value("additionalemail").toString() != additionalemail->text() ||
+            m_data.value("note").toString() != note->text())
         return true;
     else
         return false;
@@ -154,32 +163,33 @@ void AddEditUsers::setDefaultData()
     middleName->setText(m_data.value("middleName").toString());
     fioSummary->setText(m_data.value("fioSummary").toString());
     codFirm->setCurrentIndex(codFirm->findData(m_data.value("firmId").toInt()));
-    codAD->setValue(m_data.value("codAD").toInt());
+    codAD->setText(m_data.value("codAD").toString());
     codPost->setCurrentIndex(codPost->findData(m_data.value("codPost").toInt()));
     email->setText(m_data.value("email").toString());
     additionalemail->setText(m_data.value("additionalemail").toString());
+    note->setText(m_data.value("note").toString());
 }
 
 void AddEditUsers::on_buttonSave_clicked()
 {
     QSqlQuery addquery, query;
     if(!m_editMode){
-        if (codAD->value() != 0){
-            query.exec(QString("SELECT CodAD FROM users WHERE CodAD=%1;").arg(codAD->value()));
+        if (!codAD->text().isEmpty()){
+            query.exec(QString("SELECT CodAD FROM users WHERE CodAD=%1;").arg(codAD->text()));
             if (query.next())
             {
                 QMessageBox::information(this, tr("Ошибка"),
                                          tr("Пользователь с кодом '%1' уже существует.\nДобавление пользователя не выполненно!!!")
-                                         .arg(codAD->value()),
+                                         .arg(codAD->text()),
                                          tr("Закрыть"));
                 return;
             }
             addquery.prepare("INSERT INTO users (CodAD,LastName,Name,MiddleName,FIOSummary,"
-                             "CodPost,email,additionalemail,CodOrganization) VALUES (?,?,?,?,?,?,?,?,?)");
-            addquery.addBindValue(codAD->value());
+                             "CodPost,email,additionalemail,CodOrganization,Note) VALUES (?,?,?,?,?,?,?,?,?)");
+            addquery.addBindValue(codAD->text());
         }else{
             addquery.prepare("INSERT INTO users (LastName,Name,MiddleName,FIOSummary,"
-                             "CodPost,email,additionalemail,CodOrganization) VALUES (?,?,?,?,?,?,?,?)");
+                             "CodPost,email,additionalemail,CodOrganization,Note) VALUES (?,?,?,?,?,?,?,?)");
         }
         addquery.addBindValue(lastName->text());
         addquery.addBindValue(name->text());
@@ -189,6 +199,7 @@ void AddEditUsers::on_buttonSave_clicked()
         addquery.addBindValue(email->text());
         addquery.addBindValue(additionalemail->text());
         addquery.addBindValue(codFirm->itemData(codFirm->currentIndex()).toInt());
+        addquery.addBindValue(note->text());
         addquery.exec();
         if (addquery.lastError().type() != QSqlError::NoError)
         {
@@ -260,22 +271,22 @@ void AddEditUsers::on_buttonSave_clicked()
             break;
         case 2:return;
         }
-        if (codAD->value() != 0){
-            query.exec(QString("SELECT CodAD FROM users WHERE CodAD=%1;").arg(codAD->value()));
+        if (!codAD->text().isEmpty() && !codAD->text().isNull()){
+            query.exec(QString("SELECT CodAD FROM users WHERE CodAD=%1;").arg(codAD->text()));
             if (query.next())
             {
                 QMessageBox::information(this, tr("Ошибка"),
                                          tr("Пользователь с кодом '%1' уже существует.\nИзмените код и повторите попытку сохранения.")
-                                         .arg(codAD->value()),
+                                         .arg(codAD->text()),
                                          tr("Закрыть"));
                 return;
             }
             field = "CodAD = ?,";
-            bindval.enqueue(codAD->value());
+            bindval.enqueue(codAD->text());
         }else{
             field = "CodAD = NULL,";
         }
-        field = "FIOSummary = ?,";
+        field += "FIOSummary = ?,";
         field += "CodPost = ?,";
         field += "CodOrganization = ?,";
         field += "LastName = ?,";
@@ -283,6 +294,7 @@ void AddEditUsers::on_buttonSave_clicked()
         field += "MiddleName = ?,";
         field += "email = ?,";
         field += "additionalemail = ?,";
+        field += "Note = ?,";
         bindval.enqueue(fioSummary->text());
         bindval.enqueue(codPost->itemData(codPost->currentIndex()).toInt());
         bindval.enqueue(codFirm->itemData(codFirm->currentIndex()).toInt());
@@ -291,6 +303,7 @@ void AddEditUsers::on_buttonSave_clicked()
         bindval.enqueue(middleName->text());
         bindval.enqueue(email->text());
         bindval.enqueue(additionalemail->text());
+        bindval.enqueue(note->text());
         field += "RV = ? WHERE CodUser = ?";
         if(m_data.value("rv").toInt() == 254)
             bindval.enqueue(0);
@@ -317,10 +330,11 @@ void AddEditUsers::on_buttonSave_clicked()
         m_data["name"] = name->text();
         m_data["middleName"] = middleName->text();
         m_data["fioSummary"] = fioSummary->text();
-        m_data["codAD"] = codAD->value();
+        m_data["codAD"] = codAD->text();
         m_data["codPost"] = codPost->itemData(codPost->currentIndex()).toInt();
         m_data["email"] = email->text();
         m_data["additionalemail"] = additionalemail->text();
+        m_data["note"] = note->text();
         if(m_data.value("rv").toInt() == 254)
             m_data["rv"] = 0;
         else
@@ -423,48 +437,54 @@ void AddEditUsers::checkData(bool checkDataEntered)
 
 void AddEditUsers::on_lastName_textChanged()
 {
-        checkData(true);
+    checkData(true);
 }
 
 void AddEditUsers::on_name_textChanged()
 {
-        checkData(true);
+    checkData(true);
 }
 
 void AddEditUsers::on_middleName_textChanged()
 {
-        checkData(true);
+    checkData(true);
 }
 
 void AddEditUsers::on_fioSummary_textChanged()
 {
-        checkData(true);
+    checkData(true);
 }
 
 void AddEditUsers::on_codPost_currentIndexChanged(int)
 {
-        checkData(true);
+    checkData(true);
 }
 
 void AddEditUsers::on_codFirm_currentIndexChanged(int)
 {
-        checkData(true);
+    checkData(true);
 }
 
 void AddEditUsers::on_email_textChanged()
 {
-        checkData();
+    checkData();
 }
 
 void AddEditUsers::on_additionalemail_textChanged()
 {
-        checkData();
+    checkData();
 }
 
-void AddEditUsers::on_codAD_valueChanged(int)
+void AddEditUsers::on_codAD_textChanged(const QString &)
 {
-        checkData();
+    checkData();
 }
+
+void AddEditUsers::on_note_textChanged(const QString &)
+{
+    checkData();
+}
+
 void AddEditUsers::on_buttonRevert_clicked()
 {
     if(m_editMode)

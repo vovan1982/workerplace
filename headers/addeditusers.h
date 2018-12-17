@@ -34,12 +34,14 @@ private slots:
     void on_fioSummary_textChanged();
     void on_email_textChanged();
     void on_additionalemail_textChanged();
-    void on_codAD_valueChanged(int);
+    void on_codAD_textChanged(const QString &);
     void on_buttonSave_clicked();
     void on_buttonRevert_clicked();
     void on_buttonEditPost_clicked();
     void on_buttonPopulateFio_clicked();
     void updateLockRecord();
+    void on_note_textChanged(const QString &);
+
 protected:
     void changeEvent(QEvent *e);
     void closeEvent(QCloseEvent *event);

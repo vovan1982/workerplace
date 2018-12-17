@@ -798,7 +798,7 @@ void WorkPlace::on_actionEditWP_triggered()
     if(readOnly)
         aew->setWindowTitle(aew->windowTitle()+tr(" - [Только чтение]"));
     connect(aew,SIGNAL(wpDataChange()),this,SLOT(wpDataModelUpdate()));
-    aew->setWindowFlags( Qt::Dialog | Qt::CustomizeWindowHint | Qt::WindowMaximizeButtonHint | Qt::WindowCloseButtonHint);
+    aew->setWindowFlags( Qt::Window );
     aew->exec();
 }
 void WorkPlace::on_actionDelWP_triggered()

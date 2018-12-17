@@ -32,6 +32,7 @@ SelectDevice::SelectDevice(QWidget *parent, const QString &filter, bool multisel
     connect(devModel,SIGNAL(dataIsPopulated()),this,SLOT(dataIsLoaded()));
     connect(deviceView,SIGNAL(collapsed(QModelIndex)),this,SLOT(setCurIndexIfCollapsed(QModelIndex)));
     connect(this, SIGNAL(loadIndicatorShowed()), SLOT(showLoadIndicator()), Qt::QueuedConnection);
+    connect(deviceView,SIGNAL(doubleClicked(QModelIndex)),this,SLOT(on_buttonSelect_clicked()));
 
 }
 void SelectDevice::dataIsLoaded()
@@ -99,8 +100,9 @@ void SelectDevice::on_buttonSelect_clicked()
                 devModel->model()->removeRow(curViewIndex.row(),curViewIndex.parent());
                 selectedDev<<device.value(devModel->model()->cIndex.id);
                 if(selectedDev.count() > 0){
-                    QString dontShow = QString("%1.%2 NOT IN (SELECT c.%2 FROM %3 n, "
-                                       "%4 t, %3 c WHERE n.%2 IN (")
+                    QString dontShow = QString(
+                                "%1.%2 NOT IN (SELECT c.%2 FROM %3 n, "
+                                "%4 t, %3 c WHERE n.%2 IN (")
                             .arg(devModel->model()->aliasModelTable())
                             .arg(devModel->model()->colTabName.id)
                             .arg(devModel->model()->nameModelTable())
@@ -165,7 +167,7 @@ void SelectDevice::showLoadIndicator()
     int x, y;
     QSize windowSize;
     QLabel *load = new QLabel(deviceView);
-    QMovie *movie = new QMovie(":/animations/ico/animation/load.gif");
+    QMovie *movie = new QMovie(":/animations/ico/animation/loading.gif");
     buttonSelect->setEnabled(false);
     buttonSetFilter->setEnabled(false);
     buttonClearFilter->setEnabled(false);
@@ -209,4 +211,7 @@ void SelectDevice::showEvent(QShowEvent *e)
         emit loadIndicatorShowed();
         loadIndicatorIsShowed = true;
     }
+}
+void SelectDevice::setViewRootIsDecorated(bool show){
+    deviceView->setRootIsDecorated(show);
 }

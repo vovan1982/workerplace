@@ -1,35 +1,34 @@
 #include <QDebug>
-#include <QMessageBox>
 #include <QSpinBox>
-#include <QDoubleSpinBox>
 #include <QDateEdit>
-#include "headers/filterlicense.h"
-#include "headers/producers.h"
+#include <QMessageBox>
+#include <QDoubleSpinBox>
 #include "headers/selectpo.h"
+#include "headers/producers.h"
 #include "headers/providers.h"
 #include "headers/edittable.h"
+#include "headers/selectdevice.h"
+#include "headers/filterlicense.h"
 #include "headers/selectworkplace.h"
 #include "headers/selectdepartment.h"
-#include "headers/selectdevice.h"
 
-FilterLicense::FilterLicense(QWidget *parent, bool locationIsSet, int wpId) :
+FilterLicense::FilterLicense(QWidget *parent, QMap<int, QString> organizations, int curOrgId) :
     QDialog(parent),
-    m_locationIsSet(locationIsSet),
-    m_wpId(wpId)
+    m_curOrgId(curOrgId)
 {
     setupUi(this);
-    if(locationIsSet){
-        groupBox->setVisible(false);
-        label->setVisible(false);
-        filterWorkPlace->setVisible(false);
-        if(wpId != 0){
-            filterWorkPlace->setText("workplase");
-            filterWorkPlace->setData(wpId);
-        }
+    organization->addItem(tr("<Выберите организацию>"),0);
+    QMapIterator<int,QString> organizationsIterator(organizations);
+    while(organizationsIterator.hasNext()){
+        organizationsIterator.next();
+        organization->addItem(organizationsIterator.value(),organizationsIterator.key());
     }
-    selectDepIsFirm = false;
+    if(curOrgId > 0){
+        organization->setCurrentIndex(organization->findData(curOrgId));
+        organization->setEnabled(false);
+    }
     items = initItemAdditionalFilter();
-    sizeConditionNames = sizeConditionName(items,2,6);
+    sizeConditionNames = sizeConditionName(items,2,7);
     insertRowInAdditionalFilter(0);
 }
 
@@ -111,7 +110,7 @@ void FilterLicense::insertRowInAdditionalFilter(int index)
     QComboBox *w2 = new QComboBox(scrollAreaWidgetContents);
     w2->setAttribute(Qt::WA_DeleteOnClose);
     w2->setProperty("curRow",index);
-    populateComboBoxAdditionalFilter(w2,items,2);
+    populateComboBoxAdditionalFilter(w2,items,7);
     w2->setMinimumContentsLength(sizeConditionNames);
     connect(w2,SIGNAL(currentIndexChanged(QString)),this,SLOT(conditionAdditionalFilterChanget(QString)));
     rg->addWidget(w2,0,2,1,1);
@@ -206,6 +205,11 @@ QList< QList<ItemComboBox> > FilterLicense::initItemAdditionalFilter()
     item.name = tr("Не указано"); item.data = "(%1 IS NULL OR %1 = '')"; groupItem<<item;
     initItems<<groupItem; groupItem.clear();
 
+    // group 7
+    item.name = "="; item.data = "%1 = %2"; groupItem<<item;
+    item.name = tr("Содержит"); item.data = "%1 REGEXP %2"; groupItem<<item;
+    initItems<<groupItem; groupItem.clear();
+
     return initItems;
 }
 
@@ -222,23 +226,6 @@ void FilterLicense::fieldAdditionalFilterChanget(int index)
     QGridLayout *t = qobject_cast<QGridLayout *>(rowsFilterVerticalLayout->itemAt(sender()->property("curRow").toInt())->layout());
     QComboBox *cbox = qobject_cast<QComboBox *>(t->itemAtPosition(0,2)->widget());
 
-    switch(index){
-    case 0: case 1: case 4: case 5: case 10:
-        populateComboBoxAdditionalFilter(cbox,items,2);
-        break;
-    case 2: case 3: case 12:
-        populateComboBoxAdditionalFilter(cbox,items,3);
-        break;
-    case 6: case 7: case 8: case 9:
-        populateComboBoxAdditionalFilter(cbox,items,4);
-        break;
-    case 14:
-        populateComboBoxAdditionalFilter(cbox,items,5);
-        break;
-    case 11: case 13:
-        populateComboBoxAdditionalFilter(cbox,items,6);
-        break;
-    }
     QWidget *w = t->itemAtPosition(0,3)->widget();
     t->removeWidget(w);
     w->close();
@@ -290,6 +277,26 @@ void FilterLicense::fieldAdditionalFilterChanget(int index)
     }else{
         tb->setEnabled(false);
         tb->setIcon(QIcon(":/64x64/licence/ico/licence_64x64.png"));
+    }
+    switch(index){
+    case 0:
+        populateComboBoxAdditionalFilter(cbox,items,7);
+        break;
+    case 1: case 4: case 5: case 10:
+        populateComboBoxAdditionalFilter(cbox,items,2);
+        break;
+    case 2: case 3: case 12:
+        populateComboBoxAdditionalFilter(cbox,items,3);
+        break;
+    case 6: case 7: case 8: case 9:
+        populateComboBoxAdditionalFilter(cbox,items,4);
+        break;
+    case 14:
+        populateComboBoxAdditionalFilter(cbox,items,5);
+        break;
+    case 11: case 13:
+        populateComboBoxAdditionalFilter(cbox,items,6);
+        break;
     }
 }
 
@@ -394,22 +401,31 @@ void FilterLicense::conditionAdditionalFilterChanget(const QString &index)
     if(index == tr("Не указано")){
         w->setEnabled(false);
         w1->setEnabled(false);
-    }else{
-        w->setEnabled(true);
+    }else if(index == tr("Содержит")){
         QComboBox *w2 = qobject_cast<QComboBox *>(t->itemAtPosition(0,1)->widget());
-        if(w2->currentIndex() == 12)
+        if(w2->currentIndex() == 0){
+            QLineEdit *le = qobject_cast<QLineEdit *>(w);
+            le->setReadOnly(false);
+            w1->setEnabled(false);
+        }
+    }else{
+        QComboBox *w2 = qobject_cast<QComboBox *>(t->itemAtPosition(0,1)->widget());
+        if(w2->currentIndex() == 12 || w2->currentIndex() == 0){
             w1->setEnabled(true);
+            QLineEdit *le = qobject_cast<QLineEdit *>(w);
+            le->setEnabled(true);
+            le->setText("");
+            le->setReadOnly(true);
+        }else{
+            w->setEnabled(true);
+        }
     }
 }
 
-void FilterLicense::on_groupBox_clicked(bool checked)
+void FilterLicense::on_organization_currentIndexChanged(int)
 {
-    filterWorkPlace->setDisabled(checked);
-    if(checked){
-        filterWorkPlace->clearButton_clicked();
-        filterOaH->clearButton_clicked();
-    }else
-        filterDepartment->clearButton_clicked();
+    filterOaH->setText("");
+    filterOaH->setData(QVariant());
 }
 
 void FilterLicense::on_noBindingOaH_clicked(bool checked)
@@ -419,110 +435,39 @@ void FilterLicense::on_noBindingOaH_clicked(bool checked)
         filterOaH->clearButton_clicked();
 }
 
-void FilterLicense::on_filterDepartment_runButtonClicked()
-{
-    SelectDepartment *sd = new SelectDepartment(this);
-    sd->setProperty("objectName","filterDepartment");
-    connect(sd,SIGNAL(addDepartment(int,QString,int)),this,SLOT(setSelectedData(int,QString,int)));
-    sd->exec();
-}
-
-void FilterLicense::on_filterWorkPlace_runButtonClicked()
-{
-    SelectWorkPlace *swp = new SelectWorkPlace(this,0,true);
-    swp->setProperty("objectName","filterWorkPlace");
-    connect(swp,SIGNAL(addWorkPlace(int,QString,int)),this,SLOT(setSelectedData(int,QString,int)));
-    swp->exec();
-}
-
 void FilterLicense::on_filterOaH_runButtonClicked()
 {
     SelectDevice *sd;
-    if(groupBox->isChecked()){
-        if(!filterDepartment->text().isNull() && !filterDepartment->text().isEmpty()){
-            if(!dontShowChild->isChecked()){
-                if(selectDepIsFirm)
-                    sd = new SelectDevice(this,QString("dev.CodOrganization = %1")
-                                          .arg(filterDepartment->data().toInt()),false,false,false,true);
-                else
-                    sd = new SelectDevice(this,QString("dev.id IN ( "
-                                                       "SELECT id FROM device WHERE CodWorkerPlace IN ( "
-                                                       "SELECT CodWorkerPlace FROM workerplace WHERE CodDepartment IN ( "
-                                                       "SELECT c.id FROM departments n, tree t, departments c WHERE n.id = %1 "
-                                                       "AND n.id = t.parent_id AND t.id = c.id)))")
-                                          .arg(filterDepartment->data().toInt()),false,false,false,true);
-            }else
-                sd = new SelectDevice(this,QString("dev.id IN ( "
-                                                   "SELECT id FROM device WHERE CodWorkerPlace IN ( "
-                                                   "SELECT CodWorkerPlace FROM workerplace WHERE CodDepartment = %1))")
-                                      .arg(filterDepartment->data().toInt()),false,false,false,true);
-        }else
-            sd = new SelectDevice(this);
-    }else if (!filterWorkPlace->text().isNull() && !filterWorkPlace->text().isEmpty())
-        sd = new SelectDevice(this,QString("dev.id IN ( "
-                                           "SELECT id FROM device WHERE CodWorkerPlace = %1)")
-                              .arg(filterWorkPlace->data().toInt()),false,false,false,true);
+    if(organization->currentIndex() > 0)
+        sd = new SelectDevice(this,QString("dev.CodOrganization = %1 AND typedevice.Type = 1").arg(organization->itemData(organization->currentIndex()).toInt()));
     else
-        sd = new SelectDevice(this);
-    sd->setProperty("objectName","filterOaH");
+        sd = new SelectDevice(this,QString("typedevice.Type = 1"));
+    sd->setViewRootIsDecorated(false);
+    sd->setAttribute(Qt::WA_DeleteOnClose);
     connect(sd,SIGNAL(selectedDevice(QList<QVariant>)),this,SLOT(setSelectedData(QList<QVariant>)));
     sd->exec();
 }
 
-void FilterLicense::setSelectedData(int id, const QString &name, int orgId)
-{
-    if(sender()->property("objectName").toString() == "filterDepartment"){
-        filterDepartment->setText(name);
-        filterDepartment->setData(id);
-        if(id == orgId)
-            selectDepIsFirm = true;
-        else
-            selectDepIsFirm = false;
-    }
-    if(sender()->property("objectName").toString() == "filterWorkPlace"){
-        filterWorkPlace->setText(name);
-        filterWorkPlace->setData(id);
-    }
-    filterOaH->clearButton_clicked();
-}
-
 void FilterLicense::setSelectedData(QList<QVariant> datas)
 {
-    if(sender()->property("objectName").toString() == "filterOaH"){
-        filterOaH->setText(datas.value(0).toString()+" - "+datas.value(6).toString());
-        filterOaH->setData(datas.value(1));
-    }
+    filterOaH->setText(datas.value(0).toString()+" - "+datas.value(6).toString());
+    filterOaH->setData(datas.value(1));
 }
 
 void FilterLicense::on_setButton_clicked()
 {
     QString filter = "";
-    if(groupBox->isChecked()){
-        if(!filterDepartment->text().isNull() && !filterDepartment->text().isEmpty()){
-            if(!dontShowChild->isChecked()){
-                filter = QString("l.CodWorkerPlace IN (SELECT CodWorkerPlace FROM workerplace WHERE CodDepartment IN ("
-                                 "SELECT c.id FROM (SELECT * FROM departments) n, (SELECT * FROM tree) t, "
-                                 "(SELECT * FROM departments) c WHERE n.id = %1 "
-                                 "AND n.id = t.parent_id AND t.id = c.id))")
-                        .arg(filterDepartment->data().toInt());
-            }else
-                filter = QString("l.CodWorkerPlace IN (SELECT CodWorkerPlace FROM workerplace WHERE CodDepartment = %1)")
-                        .arg(filterDepartment->data().toInt());
-        }
-    }else if (!m_locationIsSet && !filterWorkPlace->text().isNull() && !filterWorkPlace->text().isEmpty())
-        filter = QString("l.CodWorkerPlace = %1").arg(filterWorkPlace->data().toInt());
+    if(organization->currentIndex() > 0 && m_curOrgId <= 0){
+        filter = QString("l.CodOrganization = %1").arg(organization->itemData(organization->currentIndex()).toInt());
+    }
     if(noBindingOaH->isChecked()){
         if(!filter.isEmpty())
             filter += " AND ";
-        else if(m_locationIsSet && m_wpId != 0)
-            filter += "(";
-        filter += QString("l.CodOaH IS NULL");
+        filter += QString("l.`key` NOT IN (SELECT CodLicense FROM licenseanddevice)");
     }else if(!filterOaH->text().isNull() && !filterOaH->text().isEmpty()){
         if(!filter.isEmpty())
             filter += " AND ";
-        else if(m_locationIsSet && m_wpId != 0)
-            filter += "(";
-        filter += QString("l.CodOaH = %1").arg(filterOaH->data().toInt());
+        filter += QString("l.`key` IN (SELECT CodLicense FROM licenseanddevice WHERE CodDevice = %1)").arg(filterOaH->data().toInt());
     }
     if(additionalFilteringRules->isChecked()){
         for(int i = 0; i < rowsFilterVerticalLayout->count();i++){
@@ -540,8 +485,7 @@ void FilterLicense::on_setButton_clicked()
             if(!filter.isEmpty()){
                 QComboBox *operators = qobject_cast<QComboBox *>(t->itemAtPosition(0,0)->widget());
                 filter += operators->itemData(operators->currentIndex()).toString();
-            }else if(i == 0 && m_locationIsSet && m_wpId != 0)
-                filter += "(";
+            }
             switch(filterField->currentIndex()){
             case 11: case 13:{
                 QDateEdit *valueFilterField = qobject_cast<QDateEdit *>(t->itemAtPosition(0,3)->widget());
@@ -568,13 +512,26 @@ void FilterLicense::on_setButton_clicked()
                         .arg(valueFilterField->value());
             }
             break;
-            case 0: case 1: case 4: case 5: case 12:{
+            case 0:{
+                QLineEdit *valueFilterField = qobject_cast<QLineEdit *>(t->itemAtPosition(0,3)->widget());
+                if(condition->currentText() == tr("Содержит")){
+                    filter += QString(condition->itemData(condition->currentIndex()).toString())
+                            .arg("po.Name")
+                            .arg("'"+valueFilterField->text()+"'");
+                }else{
+                    filter += QString(condition->itemData(condition->currentIndex()).toString())
+                            .arg(filterField->itemData(filterField->currentIndex()).toString())
+                            .arg(valueFilterField->property("data").toInt());
+                }
+            }
+                break;
+            case 1: case 4: case 5: case 12:{
                 QLineEdit *valueFilterField = qobject_cast<QLineEdit *>(t->itemAtPosition(0,3)->widget());
                 filter += QString(condition->itemData(condition->currentIndex()).toString())
                         .arg(filterField->itemData(filterField->currentIndex()).toString())
                         .arg(valueFilterField->property("data").toInt());
             }
-            break;
+                break;
             case -1: break;
             default:
                 QLineEdit *valueFilterField = qobject_cast<QLineEdit *>(t->itemAtPosition(0,3)->widget());
@@ -588,8 +545,6 @@ void FilterLicense::on_setButton_clicked()
             }
         }
     }
-    if(m_locationIsSet && m_wpId != 0)
-        filter += ")";
     emit setFilter(filter);
     this->accept();
 }

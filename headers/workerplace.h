@@ -62,6 +62,7 @@ private slots:
     void on_actionUserImport_triggered();
     void on_actionOpenCuteReport_triggered();
     void on_actionJournalHistoryUsersOnWP_triggered();
+    void on_actionAbout_triggered();
 };
 
 #endif // WORKERPLACE_H

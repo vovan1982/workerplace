@@ -12,6 +12,7 @@ class SelectDevice : public QDialog, private Ui::SelectDevice {
 public:
     SelectDevice(QWidget *parent = 0, const QString &filter = "", bool multiselections = false,
                  bool onlyHardwareMode = false, bool onlyOrgTexMode = false, bool locationIsSet = false);
+    void setViewRootIsDecorated(bool show);
 private:
     QSqlDatabase db;
     QString m_filter, curFilter, orgTexFilter;

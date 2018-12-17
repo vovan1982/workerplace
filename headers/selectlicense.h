@@ -1,6 +1,7 @@
 #ifndef SELECTLICENSE_H
 #define SELECTLICENSE_H
 
+#include <QMap>
 #include "ui_selectlicense.h"
 
 class LicenseModelControl;
@@ -10,13 +11,14 @@ class SelectLicense : public QDialog, private Ui::SelectLicense
     Q_OBJECT
 
 public:
-    explicit SelectLicense(QWidget *parent = 0, const QString &filter = "", bool multiselections = false, bool locationIsSet = false, int wpId = 0);
+    explicit SelectLicense(QWidget *parent = 0, const QString &filter = "", bool multiselections = false, QMap<int,QString> organizations = QMap<int,QString>(), int curOrgId = 0);
 private:
      LicenseModelControl *lModel;
      QString licenseFilter, m_filter, curFilter, selectedFilter;
-     bool m_multiselections, m_locationIsSet, filterIsSet, lockSelected;
+     bool m_multiselections, filterIsSet, lockSelected;
+     QMap<int,QString> m_organizations;
+     int m_curOrgId;
      QList<QVariant> selectedLic;
-     int m_wpId;
 protected:
     void changeEvent(QEvent *e);
 signals:

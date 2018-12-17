@@ -14,21 +14,15 @@ class MoveLicense : public QDialog, private Ui::MoveLicense
     Q_OBJECT
 
 public:
-    explicit MoveLicense(QWidget *parent = 0, bool singlMode = false,
-                         const QList<QVariant> &curWPData = QList<QVariant>(),
-                         const QList<QVariant> &licData = QList<QVariant>(),
-                         bool addWPMode = false, bool moveFromWp = false);
+    explicit MoveLicense(QWidget *parent = 0, bool singlMode = false,const QList<QVariant> &licData = QList<QVariant>());
 private:
     QSqlDatabase db;
-    bool m_singlMode,m_addWPMode,m_moveFromWp;
+    bool m_singlMode;
     DeviceModelControl *devModel;
     QStandardItemModel *moveLicModel;
     LicenseModel *licModel;
     LockDataBase *lockedControl;
     QTimer* timer;
-    int curOrgId, curFilPredId, curDepId, curWPWHId;
-    int newOrgId, newFilPredId, newDepId, newWPWHId;
-    QString curFilter, orgTexFilter;
     bool filterIsSet;
     bool accessForMove();
     void populateCBox(const QString &idName, const QString &tableName,
@@ -40,15 +34,9 @@ signals:
     void licIsMoved();
     void lockedError(const QString &msg, bool updateModel);
 private slots:
-    void fillCurPlace(QList<QVariant> curPlaceData);
-    void fillNewPlace(QList<QVariant> newPlaceData);
-    void setOrgTexFilter(const QString &filter);
+    void setOrgTex(const QList<QVariant> &dev);
+    void clearDevModel();
     void addLicForMove(const QList<QVariant> &lic);
-    void on_selectCurButton_clicked();
-    void on_selectNewButton_clicked();
-    void on_groupBoxDev_clicked(bool checked);
-    void on_addFiltrButton_clicked();
-    void on_clearFilterButton_clicked();
     void on_addLicButton_clicked();
     void on_clearLicButton_clicked();
     void on_delLicButton_clicked();
@@ -58,8 +46,11 @@ private slots:
     void setPerformer(const QString &performerName, int performerId);
     void on_cause_currentIndexChanged(int);
     void on_note_textChanged();
-    void deviceModelIsPopulated();
     void updateLockRecord();
+    void on_newOrganization_currentIndexChanged(int index);
+    void on_curOrganization_currentIndexChanged(int index);
+    void on_selectDeviceButton_clicked();
+    void on_removeDeviceButton_clicked();
 };
 
 #endif // MOVELICENSE_H

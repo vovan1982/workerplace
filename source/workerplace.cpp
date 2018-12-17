@@ -1,5 +1,7 @@
 #include <QtWidgets>
 #include <QMdiSubWindow>
+#include "headers/about.h"
+#include "headers/po.h"
 #include "headers/workerplace.h"
 #include "headers/referencebook.h"
 #include "headers/users.h"
@@ -9,7 +11,6 @@
 #include "headers/producers.h"
 #include "headers/inventoryreport.h"
 #include "headers/addedittypedevice.h"
-#include "headers/po.h"
 #include "headers/licenses.h"
 #include "headers/journalhistorymoved.h"
 #include "headers/deviceimport.h"
@@ -290,4 +291,12 @@ void workerPlace::closeEvent(QCloseEvent *event){
     if(db.isOpen())
         db.close();
     event->accept();
+}
+
+void workerPlace::on_actionAbout_triggered()
+{
+    About * ab = new About(this);
+    ab->setAttribute(Qt::WA_DeleteOnClose);
+    ab->setFixedSize(ab->size());
+    ab->exec();
 }

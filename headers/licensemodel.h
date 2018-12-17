@@ -27,7 +27,7 @@ public:
     bool insertRows(int row, int count, const QModelIndex &parent = QModelIndex());
     bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex());
     bool updateRow(int row, const QModelIndex &parent = QModelIndex());
-    bool sqlInsertRow(int row, int codWorkerPlace, int codPO, int codTypeLicense, int codStatePO,
+    bool sqlInsertRow(int row, int codOrganization, int codPO, int codTypeLicense, int codStatePO,
                       QMap<QString,QVariant> colValue = QMap<QString,QVariant>(), const QModelIndex &parent = QModelIndex());
     bool sqlRemoveRow(int row, const QModelIndex &parent = QModelIndex());
     bool sqlUpdateRow(int row, QMap<QString,QVariant> setData = QMap<QString,QVariant>(), const QModelIndex &parent = QModelIndex());
@@ -39,20 +39,18 @@ public:
     void copyItem(const QModelIndex& indexFrom, const QModelIndex& indexTo, int position);
     QModelIndex findData(int idData);
     QSqlError lastError();
-    void setShowParent(bool,QString);
+    void setShowParent(bool);
     QString aliasModelTable();
     QString nameModelTable();
     struct colomnIndex{
         int namePO;
         int key;
-        int codDevice;
         int codPO;
-        int codWorkerPlace;
+        int codOrganization;
         int codTypeLicense;
         int codStatePO;
         int nameProd;
-        int nameDevice;
-        int nameWP;
+        int nameOrg;
         int regName;
         int regKey;
         int regMail;
@@ -72,9 +70,8 @@ public:
     } cIndex;
     struct colomnTableName{
         QString key;
-        QString codDevice;
         QString codPO;
-        QString codWorkerPlace;
+        QString codOrganization;
         QString codTypeLicense;
         QString codStatePO;
         QString regName;
@@ -102,7 +99,6 @@ private:
     QString tabName,treeTable,aliasTable,filter,primaryQuery;
     QSqlError lastErr;
     bool showParent;
-    QString parentDevId;
 };
 
 #endif // LICENSEMODEL_H
