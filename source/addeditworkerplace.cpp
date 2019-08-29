@@ -32,17 +32,8 @@ AddEditWorkerPlace::AddEditWorkerPlace(QWidget *parent, int wpFirmId, const QMap
     location->setReadOnly(readOnly);
     delPUserButton->setDisabled(readOnly);
     if(!readOnly){
-        timer = new QTimer(this);
-        LockDataBase *lockedControl = new LockDataBase(this);
-        if(!lockedControl->lockRecord(m_wpId,"CodWorkerPlace",tableName)){
-            QMessageBox::warning(this,tr("Ошибка!!!"),
-                                 tr("Не удалось заблокировать запись:\n %1\n")
-                                 .arg(lockedControl->lastError().text()),
-                                 tr("Закрыть"));
-        }else{
-            connect(timer,SIGNAL(timeout()),this,SLOT(updateLockRecord()));
-            timer->start(30000);
-        }
+        lockedControl = new LockDataBase(this);
+        lockedControl->lockRecordThread(m_wpId,"CodWorkerPlace",tableName);
     }
     wUsers = new Cusers(users,true,wpFirmId,m_wpId,readOnly);
     connect(wUsers,SIGNAL(primaryUserSet(QString,int)),this,SLOT(setPrimaryUser(QString,int)));
@@ -94,7 +85,10 @@ void AddEditWorkerPlace::updatePrimaryUser()
 void AddEditWorkerPlace::on_name_textEdited(QString text)
 {
     if(text != m_wpName){
-        saveButton->setEnabled(true);
+        if(text.isNull() || text.isEmpty())
+            saveButton->setEnabled(false);
+        else
+            saveButton->setEnabled(true);
         cancelButton->setEnabled(true);
     }else{
         if(!formIsEdited()){
@@ -106,7 +100,10 @@ void AddEditWorkerPlace::on_name_textEdited(QString text)
 void AddEditWorkerPlace::on_primaryUser_textChanged(QString text)
 {
     if(text != m_wpPUser){
-        saveButton->setEnabled(true);
+        if(name->text().isNull() || name->text().isEmpty())
+            saveButton->setEnabled(false);
+        else
+            saveButton->setEnabled(true);
         cancelButton->setEnabled(true);
     }else{
         if(!formIsEdited()){
@@ -118,7 +115,10 @@ void AddEditWorkerPlace::on_primaryUser_textChanged(QString text)
 void AddEditWorkerPlace::on_internalNumber_textEdited(QString text)
 {
     if(text != m_wpIntNum){
-        saveButton->setEnabled(true);
+        if(name->text().isNull() || name->text().isEmpty())
+            saveButton->setEnabled(false);
+        else
+            saveButton->setEnabled(true);
         cancelButton->setEnabled(true);
     }else{
         if(!formIsEdited()){
@@ -139,7 +139,6 @@ void AddEditWorkerPlace::on_location_textEdited(QString text)
         }
     }
 }
-
 bool AddEditWorkerPlace::formIsEdited()
 {
     if(name->text() != m_wpName || tempWpPUserId != m_wpPUserId ||
@@ -217,17 +216,6 @@ void AddEditWorkerPlace::on_delPUserButton_clicked()
     tempWpPUserId = 0;
     primaryUser->clear();
 }
-void AddEditWorkerPlace::updateLockRecord()
-{
-    LockDataBase *lockedControl = new LockDataBase(this);
-    if(!lockedControl->lockRecord(m_wpId,"CodWorkerPlace",m_tableName)){
-        QMessageBox::warning(this,tr("Ошибка!!!"),
-                             tr("Не удалось продлить блокировку записи:\n %1\n")
-                             .arg(lockedControl->lastError().text()),
-                             tr("Закрыть"));
-        timer->stop();
-    }
-}
 void AddEditWorkerPlace::on_buttonHistoryUsers_clicked()
 {
     QDialog *d = new QDialog(this);
@@ -289,15 +277,59 @@ void AddEditWorkerPlace::changeEvent(QEvent *e)
 }
 void AddEditWorkerPlace::closeEvent(QCloseEvent *event){
     if(!m_readOnly){
-        timer->stop();
-        delete timer;
-        LockDataBase *lockedControl = new LockDataBase(this);
-        if(!lockedControl->unlockRecord(m_wpId,"CodWorkerPlace",m_tableName)){
-            QMessageBox::warning(this,tr("Ошибка!!!"),
-                                 tr("Не удалось разблокировать запись:\n %1\n")
-                                 .arg(lockedControl->lastError().text()),
-                                 tr("Закрыть"));
+        int button;
+        if(formIsEdited()){
+            button = QMessageBox::question(this, tr("Внимание"),
+                                     tr("Есть не сохранённые данные.\nХотите сохранить их?"),
+                                     tr("Да"),tr("Нет"),"",0,1);
+            if(button == 0){
+                if(name->text().isNull() || name->text().isEmpty()){
+                    button = QMessageBox::question(this, tr("Внимание"),
+                                             tr("Отсутствуют данные обязательные для заполнения.\nЗакрыть без сохранения?"),
+                                             tr("Да"),tr("Нет"),"",1,1);
+                    if(button == 1)
+                        event->ignore();
+                    else{
+                        lockedControl->stopLockRecordThread(m_wpId);
+                        if(!lockedControl->unlockRecord(m_wpId,"CodWorkerPlace",m_tableName)){
+                            QMessageBox::warning(this,tr("Ошибка!!!"),
+                                                 tr("Не удалось разблокировать запись:\n %1\n")
+                                                 .arg(lockedControl->lastError().text()),
+                                                 tr("Закрыть"));
+                        }
+                        event->accept();
+                    }
+                }else{
+                    on_saveButton_clicked();
+                    lockedControl->stopLockRecordThread(m_wpId);
+                    if(!lockedControl->unlockRecord(m_wpId,"CodWorkerPlace",m_tableName)){
+                        QMessageBox::warning(this,tr("Ошибка!!!"),
+                                             tr("Не удалось разблокировать запись:\n %1\n")
+                                             .arg(lockedControl->lastError().text()),
+                                             tr("Закрыть"));
+                    }
+                    event->accept();
+                }
+            }else{
+                lockedControl->stopLockRecordThread(m_wpId);
+                if(!lockedControl->unlockRecord(m_wpId,"CodWorkerPlace",m_tableName)){
+                    QMessageBox::warning(this,tr("Ошибка!!!"),
+                                         tr("Не удалось разблокировать запись:\n %1\n")
+                                         .arg(lockedControl->lastError().text()),
+                                         tr("Закрыть"));
+                }
+                event->accept();
+            }
+        }else{
+            lockedControl->stopLockRecordThread(m_wpId);
+            if(!lockedControl->unlockRecord(m_wpId,"CodWorkerPlace",m_tableName)){
+                QMessageBox::warning(this,tr("Ошибка!!!"),
+                                     tr("Не удалось разблокировать запись:\n %1\n")
+                                     .arg(lockedControl->lastError().text()),
+                                     tr("Закрыть"));
+            }
+            event->accept();
         }
-    }
-    event->accept();
+    }else
+        event->accept();
 }

@@ -2,8 +2,9 @@
 #include <QSqlError>
 #include "headers/treeitem.h"
 #include "headers/licensemodel.h"
+#include "headers/licensemodelworker.h"
 
-LicenseModel::LicenseModel(QObject *parent) : QAbstractItemModel(parent) {
+LicenseModel::LicenseModel(QObject *parent, bool inThread) : QAbstractItemModel(parent), m_inThread(inThread) {
     filter = "";
     showParent = false;
     tabName = "licenses";
@@ -108,6 +109,12 @@ LicenseModel::LicenseModel(QObject *parent) : QAbstractItemModel(parent) {
     rootData << "isLicense";
     cIndex.isLicense = 23;
     rootItemData = new TreeItem(rootData);
+    credentials["host"] = QSqlDatabase::database().hostName();
+    credentials["port"] = QSqlDatabase::database().port();
+    credentials["driver"] = QSqlDatabase::database().driverName();
+    credentials["login"] = QSqlDatabase::database().userName();
+    credentials["pass"] = QSqlDatabase::database().password();
+    credentials["databaseName"] = QSqlDatabase::database().databaseName();
 }
 LicenseModel::~LicenseModel(){
     delete rootItemData;
@@ -276,7 +283,50 @@ void LicenseModel::setFilter(const QString& filters)
 }
 void LicenseModel::select()
 {
-    setRootItemData(InitTree());
+    QMap<QString,QString> forQuery;
+    forQuery["primaryQuery"] = primaryQuery;
+    forQuery["filter"] = filter;
+
+    QMap<QString,int> indexColumn;
+    indexColumn["key"] = cIndex.key;
+    indexColumn["namePO"] = cIndex.namePO;
+    indexColumn["ico"] = cIndex.ico;
+    indexColumn["invN"] = cIndex.invN;
+    indexColumn["codOrganization"] = cIndex.codOrganization;
+    indexColumn["nameOrg"] = cIndex.nameOrg;
+    indexColumn["isLicense"] = cIndex.isLicense;
+
+    QVector<QVariant> rootDatas;
+    for(int i=0; i<rootItemData->data().size(); i++)
+        rootDatas << rootItemData->data(i);
+
+    LicenseModelWorker *worker = new LicenseModelWorker(credentials,forQuery,rootDatas,indexColumn,showParent);
+    connect(worker,&LicenseModelWorker::result,this,&LicenseModel::setNewLicenses);
+    connect(worker,&LicenseModelWorker::logData,this,&LicenseModel::logData);
+    connect(worker,&LicenseModelWorker::error,this,&LicenseModel::setError);
+
+    if(m_inThread){
+        QThread* thread = new QThread;
+        worker->moveToThread(thread);
+        connect(thread, SIGNAL(started()), worker, SLOT(process()));
+        connect(worker, SIGNAL(finished()), thread, SLOT(quit()));
+        connect(worker, SIGNAL(finished()), worker, SLOT(deleteLater()));
+        connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+        thread->start();
+    }else
+        worker->process();
+}
+void LicenseModel::clear()
+{
+    QVector<QVariant> rootDatas;
+    for(int i=0; i<rootItemData->data().size(); i++)
+        rootDatas << rootItemData->data(i);
+    setRootItemData(new TreeItem(rootDatas));
+}
+void LicenseModel::setNewLicenses(TreeItem *licenses)
+{
+    setRootItemData(licenses);
+    emit newLicensesIsSet();
 }
 bool LicenseModel::insertColumns(int position, int columns, const QModelIndex &parent)
 {
@@ -532,7 +582,11 @@ TreeItem* LicenseModel::InitTree(){
         return all;
     }
 
-    all = new TreeItem(rootData);
+    QVector<QVariant> rootDatas;
+    for(int i=0; i<rootItemData->data().size(); i++)
+        rootDatas << rootItemData->data(i);
+
+    all = new TreeItem(rootDatas);
     if(query.size()>0){
         while(query.next())
         {
@@ -557,7 +611,7 @@ TreeItem* LicenseModel::InitTree(){
                                     "WHERE n.id IN "
                                     "(SELECT CodDevice FROM licenseanddevice WHERE CodLicense = %1) "
                                     "AND n.id = t.id AND t.parent_id = p.id) "
-                                    "ORDER BY device.type DESC;"
+                                    "ORDER BY typedevice.type DESC;"
                                     ).arg(licenseKey));
                 if(ok){
                     if(queryChildren.size() > 0){
@@ -600,4 +654,9 @@ QString LicenseModel::aliasModelTable()
 QString LicenseModel::nameModelTable()
 {
     return tabName;
+}
+void LicenseModel::setError(QString errorText)
+{
+    lastErr.setDatabaseText(errorText);
+    lastErr.setType(QSqlError::UnknownError);
 }

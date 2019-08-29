@@ -4,6 +4,8 @@
 #include <QtSql>
 #include "ui_addeditfirm.h"
 
+class LockDataBase;
+
 class AddEditFirm : public QDialog, private Ui::AddEditFirm {
     Q_OBJECT
 public:
@@ -13,7 +15,7 @@ private:
     bool m_editMode;
     int m_editId;
     bool m_readOnly;
-    QTimer* timer;
+    LockDataBase *lockedControl;
 protected:
     void changeEvent(QEvent *e);
     void closeEvent(QCloseEvent *event);
@@ -24,7 +26,6 @@ private slots:
     void on_saveButton_clicked();
     void on_firmName_textEdited(QString );
     void on_cancelButton_clicked();
-    void updateLockRecord();
 };
 
 #endif // ADDEDITFIRM_H

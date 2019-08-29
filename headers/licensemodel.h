@@ -10,7 +10,7 @@ class LicenseModel : public QAbstractItemModel
 {
     Q_OBJECT
 public:
-    explicit LicenseModel(QObject *parent = 0);
+    explicit LicenseModel(QObject *parent = 0, bool inThread = false);
     ~LicenseModel();
     QModelIndex index(int row, int column, const QModelIndex& parent = QModelIndex()) const;
     bool hasChildren(const QModelIndex& parent = QModelIndex()) const;
@@ -35,6 +35,7 @@ public:
     bool removeColumns(int position, int columns, const QModelIndex &parent = QModelIndex());
     void setFilter(const QString& filters);
     void select();
+    void clear();
     QModelIndex moveItem(int movedId, int newParentId);
     void copyItem(const QModelIndex& indexFrom, const QModelIndex& indexTo, int position);
     QModelIndex findData(int idData);
@@ -89,6 +90,7 @@ public:
     } colTabName;
 private:
     QVector<QVariant> rootData;
+    QMap<QString,QVariant> credentials;
     TreeItem* InitTree();
     TreeItem* search(TreeItem* , int);
     TreeItem *itemDataFromIndex(const QModelIndex& index) const;
@@ -99,6 +101,13 @@ private:
     QString tabName,treeTable,aliasTable,filter,primaryQuery;
     QSqlError lastErr;
     bool showParent;
+    bool m_inThread;
+signals:
+    void newLicensesIsSet();
+    void logData(QString text);
+private slots:
+    void setNewLicenses(TreeItem* licenses);
+    void setError(QString errorText);
 };
 
 #endif // LICENSEMODEL_H

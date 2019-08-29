@@ -19,17 +19,8 @@ AddEditNumber::AddEditNumber(QWidget *parent, const QMap<QString, QVariant> &dat
             number->setReadOnly(true);
             note->setReadOnly(true);
         }else{
-            timer = new QTimer(this);
-            LockDataBase *lockedControl = new LockDataBase(this);
-            if(!lockedControl->lockRecord(m_data.value("userId").toInt(),"CodUser","users")){
-                QMessageBox::warning(this,tr("Ошибка!!!"),
-                                     tr("Не удалось заблокировать запись:\n %1\n")
-                                     .arg(lockedControl->lastError().text()),
-                                     tr("Закрыть"));
-            }else{
-                connect(timer,SIGNAL(timeout()),this,SLOT(updateLockRecord()));
-                timer->start(30000);
-            }
+            lockedControl = new LockDataBase(this);
+            lockedControl->lockRecordThread(m_data.value("userId").toInt(),"CodUser","users");
         }
     }
 }
@@ -49,32 +40,66 @@ void AddEditNumber::changeEvent(QEvent *e)
 void AddEditNumber::closeEvent(QCloseEvent *event){
     if(m_editMode){
         if(!m_readOnly){
-            timer->stop();
-            delete timer;
-            LockDataBase *lockedControl = new LockDataBase(this);
-            if(!lockedControl->unlockRecord(m_data.value("userId").toInt(),"CodUser","users")){
-                QMessageBox::warning(this,tr("Ошибка!!!"),
-                                     tr("Не удалось разблокировать запись:\n %1\n")
-                                     .arg(lockedControl->lastError().text()),
-                                     tr("Закрыть"));
+            int button;
+            if(dataChanged()){
+                button = QMessageBox::question(this, tr("Внимание"),
+                                               tr("Есть не сохранённые данные.\nХотите сохранить их?"),
+                                               tr("Да"),tr("Нет"),"",0,1);
+                if(button == 0){
+                    if(!dataEntered()){
+                        button = QMessageBox::question(this, tr("Внимание"),
+                                                 tr("Отсутствуют данные обязательные для заполнения.\nЗакрыть без сохранения?"),
+                                                 tr("Да"),tr("Нет"),"",1,1);
+                        if(button == 1)
+                            event->ignore();
+                        else{
+                            lockedControl->stopLockRecordThread(m_data.value("userId").toInt());
+                            if(!lockedControl->unlockRecord(m_data.value("userId").toInt(),"CodUser","users")){
+                                QMessageBox::warning(this,tr("Ошибка!!!"),
+                                                     tr("Не удалось разблокировать запись:\n %1\n")
+                                                     .arg(lockedControl->lastError().text()),
+                                                     tr("Закрыть"));
+                            }
+                            event->accept();
+                        }
+                    }else{
+                        on_buttonSave_clicked();
+                        lockedControl->stopLockRecordThread(m_data.value("userId").toInt());
+                        if(!lockedControl->unlockRecord(m_data.value("userId").toInt(),"CodUser","users")){
+                            QMessageBox::warning(this,tr("Ошибка!!!"),
+                                                 tr("Не удалось разблокировать запись:\n %1\n")
+                                                 .arg(lockedControl->lastError().text()),
+                                                 tr("Закрыть"));
+                        }
+                        event->accept();
+                    }
+                }else{
+                    lockedControl->stopLockRecordThread(m_data.value("userId").toInt());
+                    if(!lockedControl->unlockRecord(m_data.value("userId").toInt(),"CodUser","users")){
+                        QMessageBox::warning(this,tr("Ошибка!!!"),
+                                             tr("Не удалось разблокировать запись:\n %1\n")
+                                             .arg(lockedControl->lastError().text()),
+                                             tr("Закрыть"));
+                    }
+                    event->accept();
+                }
+            }else{
+                lockedControl->stopLockRecordThread(m_data.value("userId").toInt());
+                if(!lockedControl->unlockRecord(m_data.value("userId").toInt(),"CodUser","users")){
+                    QMessageBox::warning(this,tr("Ошибка!!!"),
+                                         tr("Не удалось разблокировать запись:\n %1\n")
+                                         .arg(lockedControl->lastError().text()),
+                                         tr("Закрыть"));
+                }
+                event->accept();
             }
+        }else{
+            event->accept();
         }
-    }
-    event->accept();
-}
-
-void AddEditNumber::updateLockRecord()
-{
-    LockDataBase *lockedControl = new LockDataBase(this);
-    if(!lockedControl->lockRecord(m_data.value("userId").toInt(),"CodUser","users")){
-        QMessageBox::warning(this,tr("Ошибка!!!"),
-                             tr("Не удалось продлить блокировку записи:\n %1\n")
-                             .arg(lockedControl->lastError().text()),
-                             tr("Закрыть"));
-        timer->stop();
+    }else{
+        event->accept();
     }
 }
-
 void AddEditNumber::populateCBox(const QString &idName, const QString &tableName,
                             const QString &filter, const QString &nullStr, QComboBox *cBox)
 {

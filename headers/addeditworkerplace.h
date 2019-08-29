@@ -7,6 +7,7 @@
 class Cusers;
 class Device;
 class Licenses;
+class LockDataBase;
 
 class AddEditWorkerPlace : public QDialog, private Ui::AddEditWorkerPlace {
     Q_OBJECT
@@ -21,7 +22,7 @@ private:
     int m_wpWareHouse, m_wpRV;
     bool m_readOnly;
     QString m_tableName;
-    QTimer* timer;
+    LockDataBase *lockedControl;
     Cusers *wUsers;
     Device *wDevice;
     Licenses *wLicenses;
@@ -41,7 +42,6 @@ private slots:
     void on_name_textEdited(QString text);
     void setPrimaryUser(const QString &fio, int id);
     void updatePrimaryUser();
-    void updateLockRecord();
     void on_closeButton_clicked();
     void on_buttonHistoryUsers_clicked();
     void on_buttonHistoryDevice_clicked();

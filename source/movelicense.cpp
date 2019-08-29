@@ -20,9 +20,6 @@ MoveLicense::MoveLicense(QWidget *parent, bool singlMode,const QList<QVariant> &
     this->setAttribute(Qt::WA_DeleteOnClose);
 
     lockedControl = new LockDataBase(this);
-    timer = new QTimer(this);
-    connect(timer,SIGNAL(timeout()),this,SLOT(updateLockRecord()));
-    timer->start(30000);
 
     db = QSqlDatabase::database("qt_sql_default_connection");
     db.setHostName(QSqlDatabase::database().hostName());
@@ -148,7 +145,6 @@ void MoveLicense::addLicForMove(const QList<QVariant> &lic)
                                       licModel->nameModelTable()))
     {
         if(lockedControl->lastError().type() != QSqlError::NoError){
-            timer->stop();
             if(!m_singlMode)
                 emit lockedError(tr("Не удалось получить информацию о блокировке:\n %1\n").arg(lockedControl->lastError().text()),false);
             else
@@ -209,7 +205,6 @@ void MoveLicense::addLicForMove(const QList<QVariant> &lic)
             if(!lockedControl->lockRecord(lic.value(licModel->cIndex.key).toInt(),
                                           "`"+licModel->colTabName.key+"`",
                                           licModel->nameModelTable())){
-                timer->stop();
                 if(!m_singlMode)
                     emit lockedError(tr("Не удалось заблокировать выбранную лицензию:\n %1\n").arg(lockedControl->lastError().text()),false);
                 else
@@ -263,6 +258,8 @@ void MoveLicense::addLicForMove(const QList<QVariant> &lic)
     moveLicView->resizeColumnToContents(licModel->cIndex.versionN);
     moveLicView->resizeColumnToContents(licModel->cIndex.nameLic);
     moveLicView->resizeColumnToContents(licModel->cIndex.nameState);
+
+    updateLockRecord();
 }
 
 void MoveLicense::on_clearLicButton_clicked()
@@ -276,10 +273,10 @@ void MoveLicense::on_clearLicButton_clicked()
     delLicButton->setEnabled(false);
     clearLicButton->setEnabled(false);
     moveButton->setEnabled(accessForMove());
+    lockedControl->stopLockListRecordThread();
     if(!lockedControl->unlockListRecord(lockedId,
                                       "`"+licModel->colTabName.key+"`",
                                       licModel->nameModelTable())){
-        timer->stop();
         QMessageBox::warning(this,tr("Ошибка!!!"),
                              tr("Не удалось снять блокировку:\n %1\n")
                              .arg(lockedControl->lastError().text()),
@@ -296,15 +293,16 @@ void MoveLicense::on_delLicButton_clicked()
         clearLicButton->setEnabled(false);
         moveButton->setEnabled(accessForMove());
     }
+    lockedControl->stopLockListRecordThread();
     if(!lockedControl->unlockRecord(lockedId,
                                     "`"+licModel->colTabName.key+"`",
                                     licModel->nameModelTable())){
-        timer->stop();
         QMessageBox::warning(this,tr("Ошибка!!!"),
                              tr("Не удалось снять блокировку:\n %1\n")
                              .arg(lockedControl->lastError().text()),
                              tr("Закрыть"));
     }
+    updateLockRecord();
 }
 
 void MoveLicense::on_buttonEditCause_clicked()
@@ -461,10 +459,10 @@ void MoveLicense::on_moveButton_clicked()
         QList<int> lockedId;
         for(int i = 0;i<moveLicModel->rowCount();i++)
             lockedId<<moveLicModel->index(i,licModel->cIndex.key).data().toInt();
+        lockedControl->stopLockListRecordThread();
         if(!lockedControl->unlockListRecord(lockedId,
                                           "`"+licModel->colTabName.key+"`",
                                           licModel->nameModelTable())){
-            timer->stop();
             QMessageBox::warning(this,tr("Ошибка!!!"),
                                  tr("Не удалось снять блокировку:\n %1\n")
                                  .arg(lockedControl->lastError().text()),
@@ -481,15 +479,8 @@ void MoveLicense::updateLockRecord()
     QList<int> lockedId;
     for(int i = 0;i<moveLicModel->rowCount();i++)
         lockedId<<moveLicModel->index(i,licModel->cIndex.key).data().toInt();
-    if(!lockedControl->lockListRecord(lockedId,
-                                      "`"+licModel->colTabName.key+"`",
-                                      licModel->nameModelTable())){
-        timer->stop();
-        QMessageBox::warning(this,tr("Ошибка!!!"),
-                             tr("Не удалось продлить блокировку:\n %1\n")
-                             .arg(lockedControl->lastError().text()),
-                             tr("Закрыть"));
-    }
+    lockedControl->stopLockListRecordThread();
+    lockedControl->lockListRecordThread(lockedId,"`"+licModel->colTabName.key+"`",licModel->nameModelTable());
 }
 
 void MoveLicense::on_newOrganization_currentIndexChanged(int index)

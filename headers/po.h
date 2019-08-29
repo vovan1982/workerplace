@@ -4,6 +4,7 @@
 #include "ui_po.h"
 
 class PoModel;
+class LockDataBase;
 
 class Po : public QWidget, private Ui::Po
 {
@@ -18,7 +19,7 @@ private:
     QModelIndex curIndex;
     QMenu *menu;
     bool readOnly;
-    QTimer* timer;
+    LockDataBase *lockedControl;
     bool isGroup(const QModelIndex &index);
     void hideIfGroup(bool isGr);
     void populateCBox(const QString &idName, const QString &tableName,
@@ -46,7 +47,6 @@ private slots:
     void on_namePo_textEdited();
     void on_producer_currentIndexChanged(int);
     void on_note_textEdited();
-    void updateLockReferenceBook();
 protected:
     void changeEvent(QEvent *e);
     void closeEvent(QCloseEvent *event);

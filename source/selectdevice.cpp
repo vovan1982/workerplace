@@ -7,6 +7,7 @@
 #include "headers/devicemodelcontrol.h"
 #include "headers/filterdevice.h"
 #include "headers/lockdatabase.h"
+#include "headers/loadindicator.h"
 
 SelectDevice::SelectDevice(QWidget *parent, const QString &filter, bool multiselections,
                            bool onlyHardwareMode, bool onlyOrgTexMode, bool locationIsSet) :
@@ -28,17 +29,16 @@ SelectDevice::SelectDevice(QWidget *parent, const QString &filter, bool multisel
     db.setPort(QSqlDatabase::database().port());
     db.setUserName(QSqlDatabase::database().userName());
     db.setPassword(QSqlDatabase::database().password());
+    li = new LoadIndicator(deviceView,tr("Подождите идёт загрузка..."));
     devModel = new DeviceModelControl(deviceView,deviceView,"selectDevice",db,filter);
     connect(devModel,SIGNAL(dataIsPopulated()),this,SLOT(dataIsLoaded()));
     connect(deviceView,SIGNAL(collapsed(QModelIndex)),this,SLOT(setCurIndexIfCollapsed(QModelIndex)));
-    connect(this, SIGNAL(loadIndicatorShowed()), SLOT(showLoadIndicator()), Qt::QueuedConnection);
     connect(deviceView,SIGNAL(doubleClicked(QModelIndex)),this,SLOT(on_buttonSelect_clicked()));
 
 }
 void SelectDevice::dataIsLoaded()
 {
-    loadIndicatorIsShowed = true;
-    emit loadIndicatorClosed();
+    li->stop();
     if(devModel->model()->rowCount(QModelIndex()) > 0){
         devModel->setCurrentIndexFirstRow();
         buttonSelect->setEnabled(true);
@@ -162,29 +162,10 @@ void SelectDevice::on_buttonClearFilter_clicked()
 }
 void SelectDevice::showLoadIndicator()
 {
-    int screenWidth, width;
-    int screenHeight, height;
-    int x, y;
-    QSize windowSize;
-    QLabel *load = new QLabel(deviceView);
-    QMovie *movie = new QMovie(":/animations/ico/animation/loading.gif");
     buttonSelect->setEnabled(false);
     buttonSetFilter->setEnabled(false);
     buttonClearFilter->setEnabled(false);
-    load->setMovie(movie);
-    load->setAttribute(Qt::WA_DeleteOnClose);
-    connect(this,SIGNAL(loadIndicatorClosed()),load,SLOT(close()));
-    movie->start();
-    screenWidth = deviceView->width();
-    screenHeight = deviceView->height();
-    windowSize = load->size();
-    width = windowSize.width();
-    height = windowSize.height();
-    x = (screenWidth - width) / 2;
-    y = (screenHeight - height) / 2;
-    y -= 20;
-    load->move(x,y);
-    load->show();
+    li->start();
 }
 void SelectDevice::lockedErrorMessage(const QString &msg, bool updateModel)
 {
@@ -208,10 +189,15 @@ void SelectDevice::showEvent(QShowEvent *e)
 {
     QDialog::showEvent( e );
     if (!loadIndicatorIsShowed){
-        emit loadIndicatorShowed();
         loadIndicatorIsShowed = true;
+        showLoadIndicator();
     }
 }
 void SelectDevice::setViewRootIsDecorated(bool show){
     deviceView->setRootIsDecorated(show);
+}
+void SelectDevice::resizeEvent(QResizeEvent *event)
+{
+    QDialog::resizeEvent(event);
+    li->updatePosition();
 }

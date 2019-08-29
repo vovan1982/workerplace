@@ -1,10 +1,11 @@
-#include "loadindicator.h"
+#include "headers/loadindicator.h"
+#include "headers/waitingspinnerwidget.h"
 
-LoadIndicator::LoadIndicator(QObject *parent, const QString &animationPath, const QString &text) :
+LoadIndicator::LoadIndicator(QObject *parent, const QString &text) :
     QObject(parent),
-    m_animationPath(animationPath),
     m_text(text)
 {
+    running = false;
     if(parent != nullptr){
         parentWidget = qobject_cast<QWidget *>(parent);
     }else{
@@ -24,18 +25,16 @@ void LoadIndicator::setParent(QObject *parent)
 
 void LoadIndicator::start()
 {
-    if(parentWidget != nullptr){
+    if(parentWidget != nullptr && animation == nullptr){
         animation = new QWidget(parentWidget);
         QHBoxLayout *layout = new QHBoxLayout(animation);
-        QMovie *movie = new QMovie(m_animationPath);
-        movie->setParent(animation);
-        QLabel *gif = new QLabel(animation);
-        gif->setMovie(movie);
-        movie->start();
-        layout->addWidget(gif);
+        WaitingSpinnerWidget* spinner = new WaitingSpinnerWidget(animation,false);
+        spinner->start();
+        layout->addWidget(spinner);
         if(!m_text.isNull() && !m_text.isEmpty()){
             QLabel *text = new QLabel(animation);
             text->setText(m_text);
+            text->setStyleSheet("font-weight: bold; color: black");
             layout->addWidget(text);
         }
         animation->setAttribute(Qt::WA_DeleteOnClose);
@@ -49,6 +48,7 @@ void LoadIndicator::start()
         y = (screenHeight - height) / 2;
         animation->move(x,y);
         animation->show();
+        running = true;
     }
 }
 
@@ -57,6 +57,7 @@ void LoadIndicator::stop()
     if(animation != nullptr){
         animation->close();
         animation = nullptr;
+        running = false;
     }
 }
 
@@ -71,12 +72,12 @@ void LoadIndicator::updatePosition()
     }
 }
 
-void LoadIndicator::setAnimationPath(const QString &path)
-{
-    m_animationPath = path;
-}
-
 void LoadIndicator::setText(const QString &text)
 {
     m_text = text;
+}
+
+bool LoadIndicator::isRunning()
+{
+    return running;
 }

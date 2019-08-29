@@ -5,6 +5,7 @@
 #include "ui_selectlicense.h"
 
 class LicenseModelControl;
+class LoadIndicator;
 
 class SelectLicense : public QDialog, private Ui::SelectLicense
 {
@@ -13,17 +14,23 @@ class SelectLicense : public QDialog, private Ui::SelectLicense
 public:
     explicit SelectLicense(QWidget *parent = 0, const QString &filter = "", bool multiselections = false, QMap<int,QString> organizations = QMap<int,QString>(), int curOrgId = 0);
 private:
-     LicenseModelControl *lModel;
-     QString licenseFilter, m_filter, curFilter, selectedFilter;
-     bool m_multiselections, filterIsSet, lockSelected;
-     QMap<int,QString> m_organizations;
-     int m_curOrgId;
-     QList<QVariant> selectedLic;
+    LicenseModelControl *lModel;
+    LoadIndicator *li;
+    QString licenseFilter, m_filter, curFilter, selectedFilter;
+    bool m_multiselections, filterIsSet, lockSelected;
+    QMap<int,QString> m_organizations;
+    int m_curOrgId;
+    QList<QVariant> selectedLic;
+    bool dontShowLoadindicator;
 protected:
+    void showEvent(QShowEvent *e);
+    void resizeEvent(QResizeEvent *event);
     void changeEvent(QEvent *e);
 signals:
     void selectedLicense(const QList<QVariant> &lic);
 private slots:
+    void dataIsLoaded();
+    void showLoadIndicator();
     void updateLicenseModel();
     void setAccessToActions(const QModelIndex &index = QModelIndex());
     void setFilter(const QString &filter);

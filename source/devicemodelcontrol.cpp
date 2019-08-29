@@ -52,7 +52,7 @@ DeviceModelControl::DeviceModelControl(QObject *parent, const QString &dbConnect
 DeviceModelControl::DeviceModelControl(QObject *parent, QTreeView *view, const QSqlDatabase &connectionData, const QString &dbConnectionName) :
     QObject(parent)
 {
-    devModel = new DeviceModel(dbConnectionName,connectionData,this,false,true);
+    devModel = new DeviceModel(dbConnectionName,connectionData,this,false);
     proxyModel = new QSortFilterProxyModel(this);
     proxyModel->setDynamicSortFilter(true);
     proxyModel->setSourceModel(devModel);
@@ -89,7 +89,6 @@ DeviceModelControl::DeviceModelControl(QObject *parent, QTreeView *view, const Q
     devModel->setHeaderData(devModel->cIndex.price, Qt::Horizontal,tr("Стоимость"));
     devModel->setHeaderData(devModel->cIndex.stateName, Qt::Horizontal,tr("Состояние"));
     devModel->setHeaderData(devModel->cIndex.note, Qt::Horizontal,tr("Примечание"));
-//    devModel->initEmpty();
 }
 
 DeviceModelControl::~DeviceModelControl(){
@@ -98,6 +97,7 @@ DeviceModelControl::~DeviceModelControl(){
 
 void DeviceModelControl::populateDevModel(const QString &filter)
 {
+    devModel->clear();
     devModel->setFilter(filter);
     devModel->setHeaderData(devModel->cIndex.typeDevName, Qt::Horizontal,tr("Тип устройства"));
     devModel->setHeaderData(devModel->cIndex.name, Qt::Horizontal,tr("Наименование"));

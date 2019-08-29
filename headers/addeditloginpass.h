@@ -3,6 +3,8 @@
 
 #include "ui_addeditloginpass.h"
 
+class LockDataBase;
+
 class AddEditLoginPass : public QDialog, private Ui::AddEditLoginPass
 {
     Q_OBJECT
@@ -14,7 +16,7 @@ public:
 private:
     QMap<QString,QVariant> m_data;
     bool m_editMode, m_readOnly;
-    QTimer* timer;
+    LockDataBase *lockedControl;
     void clearForm();
     bool dataEntered();
     bool formIsEmpty();
@@ -34,7 +36,6 @@ private slots:
     void on_pass_textChanged();
     void on_note_textChanged();
     void on_editLoginType_clicked();
-    void updateLockRecord();
 protected:
     void changeEvent(QEvent *e);
     void closeEvent(QCloseEvent *event);

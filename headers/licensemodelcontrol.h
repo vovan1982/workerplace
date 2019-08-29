@@ -11,7 +11,7 @@ class LicenseModelControl : public QObject
 {
     Q_OBJECT
 public:
-    explicit LicenseModelControl(QObject *parent = 0, QTreeView *view = 0, bool showParentDevice = false, const QString &modelFilter = "");
+    explicit LicenseModelControl(QObject *parent = 0, QTreeView *view = 0, bool showParentDevice = false, const QString &modelFilter = "", bool inThread = false);
     void populateLicModel(const QString &filter);
     LicenseModel *model();
     QString filter();
@@ -30,9 +30,11 @@ private:
     bool m_showParentDevice;
     QString licFilter;
 signals:
-    void licModelUpdated();
+    void dataIsPopulated();
 public slots:
     void updateLicModel();
+private slots:
+    void dataIsLoaded();
 
 };
 

@@ -144,9 +144,11 @@
     <qresource prefix="/animations">
         <file>ico/animation/load.gif</file>
         <file>ico/animation/loading.gif</file>
+        <file>ico/animation/loading_32x32.gif</file>
     </qresource>
     <qresource prefix="/16x16/copy">
         <file>ico/copy.png</file>
+        <file>ico/copy_16x16.png</file>
     </qresource>
     <qresource prefix="/exaro">
         <file>ico/exaro.ico</file>

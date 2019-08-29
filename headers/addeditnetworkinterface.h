@@ -23,12 +23,12 @@ private:
     bool compareAuto(QCheckBox *autoCheck, int dbData);
 protected:
     void changeEvent(QEvent *e);
+    void closeEvent(QCloseEvent *event);
 private slots:
     void on_checkAutoIP_clicked(bool checked);
     void on_checkAutoDNS_clicked(bool checked);
     void on_checkAutoWINS_clicked(bool checked);
     void on_buttonSave_clicked();
-    void on_buttonClose_clicked();
     void on_name_textEdited(const QString &arg1);
     void on_ip_textEdited();
     void on_maska_textEdited();

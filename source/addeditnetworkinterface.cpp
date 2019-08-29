@@ -31,6 +31,33 @@ void AddEditNetworkInterface::changeEvent(QEvent *e)
     }
 }
 
+void AddEditNetworkInterface::closeEvent(QCloseEvent *event)
+{
+    if(m_editMode){
+        int button;
+        if(dataIsChanged()){
+            button = QMessageBox::question(this, tr("Внимание"),
+                                     tr("Есть не сохранённые данные.\nХотите сохранить их?"),
+                                     tr("Да"),tr("Нет"),"",0,1);
+            if(button == 0){
+                if(name->text().isNull() || name->text().isEmpty())
+                {
+                    button = QMessageBox::question(this, tr("Внимание"),
+                                             tr("Отсутствуют данные обязательные для заполнения.\nЗакрыть без сохранения?"),
+                                             tr("Да"),tr("Нет"),"",1,1);
+                    if(button == 1)
+                        event->ignore();
+                    else
+                        event->accept();
+                }else
+                    on_buttonSave_clicked();
+            }
+        }else
+            event->accept();
+    }else
+        event->accept();
+}
+
 void AddEditNetworkInterface::setDefaultEditData()
 {
     name->setText(m_im->data(m_im->index(m_index.row(),2)).toString());
@@ -362,11 +389,6 @@ void AddEditNetworkInterface::on_buttonSave_clicked()
         }
     }
     accept();
-}
-
-void AddEditNetworkInterface::on_buttonClose_clicked()
-{
-    reject();
 }
 
 void AddEditNetworkInterface::on_name_textEdited(const QString &arg1)

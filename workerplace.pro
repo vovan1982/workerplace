@@ -68,8 +68,6 @@ SOURCES += main.cpp \
     source/userimport.cpp \
     source/userimportcomparisonorganization.cpp \
     source/userreportparser.cpp \
-    source/populatedevicethread.cpp \
-    source/devicethreadworker.cpp \
     source/lockdatabase.cpp \
     source/addeditdepartments.cpp \
     source/addeditusers.cpp \
@@ -83,7 +81,11 @@ SOURCES += main.cpp \
     source/reportfilelistmodel.cpp \
     source/licensetablemodel.cpp \
     source/about.cpp \
-    source/loadindicator.cpp
+    source/loadindicator.cpp \
+    source/licensemodelworker.cpp \
+    source/waitingspinnerwidget.cpp \
+    source/devicemodelworker.cpp \
+    source/lockdatabaseworker.cpp
 HEADERS += headers/connectdb.h \
     headers/referencebook.h \
     headers/edittable.h \
@@ -144,8 +146,6 @@ HEADERS += headers/connectdb.h \
     headers/userimport.h \
     headers/userimportcomparisonorganization.h \
     headers/userreportparser.h \
-    headers/populatedevicethread.h \
-    headers/devicethreadworker.h \
     headers/lockdatabase.h \
     headers/addeditdepartments.h \
     headers/addeditusers.h \
@@ -161,7 +161,11 @@ HEADERS += headers/connectdb.h \
     headers/enums.h \
     headers/licensetablemodel.h \
     headers/about.h \
-    headers/loadindicator.h
+    headers/loadindicator.h \
+    headers/licensemodelworker.h \
+    headers/waitingspinnerwidget.h \
+    headers/devicemodelworker.h \
+    headers/lockdatabaseworker.h
 FORMS += ui/workerplace.ui \
     ui/connectdb.ui \
     ui/referencebook.ui \

@@ -10,8 +10,6 @@ AddEditTypeDevice::AddEditTypeDevice(QWidget *parent,const QString &tName, int t
     QDialog(parent), m_tName(tName), m_type(type)
 {
     setupUi(this);
-    timer = new QTimer(this);
-    connect(timer,SIGNAL(timeout()),this,SLOT(updateLockReferenceBook()));
     readOnly = false;
     model = new QSqlTableModel(this);
     model->setTable(tName);
@@ -35,10 +33,11 @@ AddEditTypeDevice::AddEditTypeDevice(QWidget *parent,const QString &tName, int t
     typeDeviceView->resizeColumnsToContents();
     typeDeviceView->resizeRowsToContents();
 
-    LockDataBase *lockedControl = new LockDataBase(this);
+    lockedControl = new LockDataBase(this);
+
     if(lockedControl->referenceBookIsLocked(tName)){
         readOnly = true;
-        setWindowTitle(windowTitle()+tr(" - [Только чттение]"));
+        setWindowTitle(windowTitle()+tr(" - [Только чтение]"));
         addButton->setEnabled(false);
         delButton->setEnabled(false);
         buttonEditIcon->setEnabled(false);
@@ -55,13 +54,7 @@ AddEditTypeDevice::AddEditTypeDevice(QWidget *parent,const QString &tName, int t
                                  .arg(lockedControl->lastError().text()),
                                  tr("Закрыть"));
         }else{
-            if(!lockedControl->lockReferenceBook(tName))
-                QMessageBox::warning(this,tr("Ошибка!!!"),
-                                     tr("Не удалось заблокировать выбранный справочник:\n %1\n")
-                                     .arg(lockedControl->lastError().text()),
-                                     tr("Закрыть"));
-            else
-                timer->start(30000);
+            lockedControl->lockReferenceBookThread(tName);
         }
     }
 }
@@ -138,18 +131,6 @@ void AddEditTypeDevice::on_delIcoButton_clicked()
     model->setData(model->index(index.row(),1),"");
 }
 
-void AddEditTypeDevice::updateLockReferenceBook()
-{
-    LockDataBase *lockedControl = new LockDataBase(this);
-    if(!lockedControl->lockReferenceBook(m_tName)){
-        timer->stop();
-        QMessageBox::warning(this,tr("Ошибка!!!"),
-                             tr("Не удалось продлить блокировку выбраного справочника:\n %1\n")
-                             .arg(lockedControl->lastError().text()),
-                             tr("Закрыть"));
-    }
-}
-
 void AddEditTypeDevice::keyPressEvent(QKeyEvent * e)
 {
     if(!readOnly){
@@ -208,8 +189,8 @@ void AddEditTypeDevice::changeEvent(QEvent *e)
 }
 void AddEditTypeDevice::closeEvent(QCloseEvent *event)
 {
-    LockDataBase *lockedControl = new LockDataBase(this);
     if(!readOnly){
+        lockedControl->stopLockReferenceBookThread(m_tName);
         if(!lockedControl->unlockReferenceBook(m_tName))
             QMessageBox::warning(this,tr("Ошибка!!!"),
                                  tr("Не удалось разблокировать справочник:\n %1\n")

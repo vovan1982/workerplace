@@ -8,6 +8,7 @@
 #include "headers/licensemodel.h"
 #include "headers/lockdatabase.h"
 #include "headers/filterlicense.h"
+#include "headers/loadindicator.h"
 #include "headers/workplacemodel.h"
 #include "headers/addeditlicense.h"
 #include "headers/licensemodelcontrol.h"
@@ -17,6 +18,7 @@ Licenses::Licenses(QWidget *parent, bool readOnly) :
     QWidget(parent), m_readOnly(readOnly)
 {
     setupUi(this);
+    dontShowLoadindicator = false;
     if(m_readOnly) setWindowTitle(windowTitle()+tr(" - [Только чттение]"));
     filterIsSet = false;
     licenseFilter = "";
@@ -33,15 +35,54 @@ Licenses::Licenses(QWidget *parent, bool readOnly) :
     menu->addActions(ag->actions());
     licenseButton->setMenu(menu);
 
-    lModel = new LicenseModelControl(licenseView,licenseView,showParentDevice->isChecked(),licenseFilter);
+    actionAddLicense->setEnabled(false);
+    buttonUpdate->setEnabled(false);
+    buttonCopyAllInBufer->setEnabled(false);
+
+    li = new LoadIndicator(licenseView,tr("Подождите идёт загрузка..."));
+
+    lModel = new LicenseModelControl(licenseView,licenseView,showParentDevice->isChecked(),licenseFilter,true);
+
+    connect(lModel,SIGNAL(dataIsPopulated()),this,SLOT(dataIsLoaded()));
     connect(licenseView->selectionModel(), SIGNAL(currentRowChanged(QModelIndex,QModelIndex)),
             this, SLOT(setAccessToActions(QModelIndex)));
     connect(licenseView, SIGNAL(customContextMenuRequested(const QPoint &)),this, SLOT(onLicMenu(const QPoint &)));
     connect(licenseView, SIGNAL(doubleClicked(QModelIndex)),this, SLOT(doubleClickedLicenseView()));
-    connect(buttonUpdate,SIGNAL(clicked()),lModel,SLOT(updateLicModel()));
-    lModel->setCurrentIndexFirstRow();
-
-    setAccessToActions();
+    connect(buttonUpdate,SIGNAL(clicked()),this,SLOT(updateLicenseModel()));
+}
+void Licenses::showEvent(QShowEvent *e)
+{
+    QWidget::showEvent( e );
+    if(!dontShowLoadindicator){
+        dontShowLoadindicator = true;
+        showLoadIndicator();
+    }
+}
+void Licenses::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    li->updatePosition();
+}
+void Licenses::dataIsLoaded()
+{
+    li->stop();
+    if(lModel->model()->lastError().type() == QSqlError::NoError){
+        actionAddLicense->setEnabled(true);
+        buttonUpdate->setEnabled(true);
+        buttonCopyAllInBufer->setEnabled(true);
+        if(lModel->model()->rowCount() == 0)
+            setAccessToActions();
+        else{
+            showParentDevice->setEnabled(true);
+            setAccessToActions(licenseView->currentIndex());
+        }
+        if(showParentDevice->isChecked())
+            licenseView->collapseAll();
+    }else{
+        QMessageBox::warning(this, tr("Ошибка"),
+                                 tr("Ошибка получения данных:\n %1").arg(lModel->model()->lastError().text()),
+                                 tr("Закрыть"));
+    }
 }
 void Licenses::onLicMenu(const QPoint &p){
    menu->exec(licenseView->viewport()->mapToGlobal(p));
@@ -54,10 +95,8 @@ void Licenses::doubleClickedLicenseView(){
 }
 void Licenses::updateLicenseModel()
 {
+    showLoadIndicator();
     lModel->updateLicModel();
-    setAccessToActions(licenseView->currentIndex());
-    if(showParentDevice->isChecked())
-        licenseView->collapseAll();
 }
 void Licenses::updateLicenseRow()
 {
@@ -231,6 +270,7 @@ void Licenses::on_closeButton_clicked()
 }
 void Licenses::on_showParentDevice_clicked(bool checked)
 {
+    showLoadIndicator();
     lModel->setShowParentDevice(checked);
     updateLicenseModel();
 }
@@ -397,4 +437,20 @@ void Licenses::changeEvent(QEvent *e)
     default:
         break;
     }
+}
+void Licenses::showLoadIndicator()
+{
+    actionAddLicense->setEnabled(false);
+    actionDelLicense->setEnabled(false);
+    actionEditLicense->setEnabled(false);
+    actionMoveLicense->setEnabled(false);
+    actionHistoryMoved->setEnabled(false);
+    actionCopyLicenseInBufer->setEnabled(false);
+    moveButton->setEnabled(false);
+    setFilterButton->setEnabled(false);
+    clearFilterButton->setEnabled(false);
+    buttonUpdate->setEnabled(false);
+    buttonCopyAllInBufer->setEnabled(false);
+    showParentDevice->setEnabled(false);
+    li->start();
 }

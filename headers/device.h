@@ -6,6 +6,7 @@
 
 class WorkPlaceModel;
 class DeviceModelControl;
+class LoadIndicator;
 
 class Device : public QWidget, private Ui::Device
 {
@@ -22,6 +23,7 @@ private:
     DeviceModelControl *devModel;
     WorkPlaceModel *wpModel;
     QMenu *menu;
+    LoadIndicator *li;
     void populateWpModel(int filter);
     void clearWpForm();
     QString readDataModel(const QModelIndex &index);
@@ -29,11 +31,10 @@ private:
 protected:
     void changeEvent(QEvent *e);
     void showEvent(QShowEvent *e);
+    void resizeEvent(QResizeEvent *event);
 signals:
     void closeDeviceWin();
     void devModelUpdated();
-    void loadIndicatorShowed();
-    void loadIndicatorClosed();
 private slots:
     void showLoadIndicator();
     void dataIsLoaded();
@@ -41,6 +42,7 @@ private slots:
     void doubleClickedDeviceView(const QModelIndex &index);
     void on_actionAddNewDevice_triggered();
     void on_actionAddDevice_triggered();
+    void on_actionCreateCopy_triggered();
     void on_actionDelDevice_triggered();
     void on_actionMoveDevice_triggered();
     void on_actionAddNewDiviceInComposition_triggered();

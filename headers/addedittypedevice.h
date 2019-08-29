@@ -3,6 +3,7 @@
 
 #include "ui_addedittypedevice.h"
 class QSqlTableModel;
+class LockDataBase;
 
 class AddEditTypeDevice : public QDialog, private Ui::AddEditTypeDevice {
     Q_OBJECT
@@ -13,7 +14,7 @@ private:
     QString m_tName;
     int m_type;
     QSqlTableModel *model;
-    QTimer* timer;
+    LockDataBase *lockedControl;
     void changeButton(bool ch);
     virtual void keyPressEvent ( QKeyEvent * e );
 signals:
@@ -28,7 +29,6 @@ private slots:
     void dataModelEdit();
     void on_buttonEditIcon_clicked();
     void setCurentIcon(const QString &icoFile);
-    void updateLockReferenceBook();
 protected:
     void changeEvent(QEvent *e);
     void closeEvent(QCloseEvent *event);

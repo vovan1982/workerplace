@@ -15,9 +15,7 @@ CReferenceBook::CReferenceBook(QWidget *parent) : QWidget(parent)
 {
     setupUi(this);
     curReferenceBook = "";
-    timer = new QTimer(this);
-    connect(timer,SIGNAL(timeout()),this,SLOT(updateLockReferenceBook()));
-    timer->start(30000);
+    lockedControl = new LockDataBase(this);
     model = new QSqlRelationalTableModel(this);
     model2 = new QSqlRelationalTableModel(this);
     QStringList refList;
@@ -123,8 +121,8 @@ void CReferenceBook::on_revertButton_clicked()
 
 void CReferenceBook::updateTable(QString tableName)
 {
-    LockDataBase *lockedControl = new LockDataBase(this);
     if(!readOnly && modelSet){
+        lockedControl->stopLockReferenceBookThread(curReferenceBook);
         if(!lockedControl->unlockReferenceBook(curReferenceBook))
             QMessageBox::warning(this,tr("Ошибка!!!"),
                                  tr("Не удалось разблокировать справочник:\n %1\n")
@@ -154,11 +152,7 @@ void CReferenceBook::updateTable(QString tableName)
             tableReference->setEditTriggers(QAbstractItemView::DoubleClicked |
                                             QAbstractItemView::EditKeyPressed |
                                             QAbstractItemView::AnyKeyPressed);
-            if(!lockedControl->lockReferenceBook(tableName))
-                QMessageBox::warning(this,tr("Ошибка!!!"),
-                                     tr("Не удалось заблокировать выбранный справочник:\n %1\n")
-                                     .arg(lockedControl->lastError().text()),
-                                     tr("Закрыть"));
+            lockedControl->lockReferenceBookThread(tableName);
         }
     }
 
@@ -187,19 +181,6 @@ void CReferenceBook::changeButton(bool ch)
     revertButton->setEnabled(ch);
     submitButton->setEnabled(ch);
     editMode = ch;
-}
-void CReferenceBook::updateLockReferenceBook()
-{
-    if(!curReferenceBook.isEmpty()){
-        LockDataBase *lockedControl = new LockDataBase(this);
-        if(!lockedControl->lockReferenceBook(curReferenceBook)){
-            timer->stop();
-            QMessageBox::warning(this,tr("Ошибка!!!"),
-                                 tr("Не удалось продлить блокировку выбраного справочника:\n %1\n")
-                                 .arg(lockedControl->lastError().text()),
-                                 tr("Закрыть"));
-        }
-    }
 }
 void CReferenceBook::keyPressEvent(QKeyEvent * e)
 {
@@ -253,8 +234,8 @@ void CReferenceBook::changeEvent(QEvent *e)
 }
 void CReferenceBook::closeEvent(QCloseEvent *event)
 {
-    LockDataBase *lockedControl = new LockDataBase(this);
     if(!readOnly && modelSet){
+        lockedControl->stopLockReferenceBookThread(curReferenceBook);
         if(!lockedControl->unlockReferenceBook(curReferenceBook))
             QMessageBox::warning(this,tr("Ошибка!!!"),
                                  tr("Не удалось разблокировать справочник:\n %1\n")

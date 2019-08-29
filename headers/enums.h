@@ -5,6 +5,13 @@
 
 class Enums {
 public:
+    enum class FormModes {
+        Edit,
+        Copy,
+        Add,
+        Read
+    };
+    Q_ENUM(FormModes)
     enum Modes {
         WorkPlace,
         Device,

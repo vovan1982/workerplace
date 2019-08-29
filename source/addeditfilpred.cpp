@@ -17,17 +17,8 @@ AddEditFilPred::AddEditFilPred(QWidget *parent, const QString &tabName, int pare
             return;
         }
         if(!readOnly){
-            timer = new QTimer(this);
-            LockDataBase *lockedControl = new LockDataBase(this);
-            if(!lockedControl->lockRecord(editId,"id",tabName)){
-                QMessageBox::warning(this,tr("Ошибка!!!"),
-                                     tr("Не удалось заблокировать запись:\n %1\n")
-                                     .arg(lockedControl->lastError().text()),
-                                     tr("Закрыть"));
-            }else{
-                connect(timer,SIGNAL(timeout()),this,SLOT(updateLockRecord()));
-                timer->start(30000);
-            }
+            lockedControl = new LockDataBase(this);
+            lockedControl->lockRecordThread(editId,"id",tabName);
         }else
             filpredName->setReadOnly(true);
         query.next();
@@ -65,7 +56,7 @@ void AddEditFilPred::on_saveButton_clicked()
         if(curName != filpredName->text())
             emit editFilPred(filpredName->text());
         if(!m_readOnly){
-            LockDataBase *lockedControl = new LockDataBase(this);
+            lockedControl->stopLockRecordThread(m_editId);
             if(!lockedControl->unlockRecord(m_editId,"id",m_tabName)){
                 QMessageBox::warning(this,tr("Ошибка!!!"),
                                      tr("Не удалось разблокировать запись:\n %1\n")
@@ -80,9 +71,7 @@ void AddEditFilPred::on_cancelButton_clicked()
 {
     if(m_editMode){
         if(!m_readOnly){
-            timer->stop();
-            delete timer;
-            LockDataBase *lockedControl = new LockDataBase(this);
+            lockedControl->stopLockRecordThread(m_editId);
             if(!lockedControl->unlockRecord(m_editId,"id",m_tabName)){
                 QMessageBox::warning(this,tr("Ошибка!!!"),
                                      tr("Не удалось разблокировать запись:\n %1\n")
@@ -92,17 +81,6 @@ void AddEditFilPred::on_cancelButton_clicked()
         }
     }
     reject();
-}
-void AddEditFilPred::updateLockRecord()
-{
-    LockDataBase *lockedControl = new LockDataBase(this);
-    if(!lockedControl->lockRecord(m_editId,"id",m_tabName)){
-        QMessageBox::warning(this,tr("Ошибка!!!"),
-                             tr("Не удалось продлить блокировку записи:\n %1\n")
-                             .arg(lockedControl->lastError().text()),
-                             tr("Закрыть"));
-        timer->stop();
-    }
 }
 void AddEditFilPred::changeEvent(QEvent *e)
 {
@@ -118,9 +96,7 @@ void AddEditFilPred::changeEvent(QEvent *e)
 void AddEditFilPred::closeEvent(QCloseEvent *event){
     if(m_editMode){
         if(!m_readOnly){
-            timer->stop();
-            delete timer;
-            LockDataBase *lockedControl = new LockDataBase(this);
+            lockedControl->stopLockRecordThread(m_editId);
             if(!lockedControl->unlockRecord(m_editId,"id",m_tabName)){
                 QMessageBox::warning(this,tr("Ошибка!!!"),
                                      tr("Не удалось разблокировать запись:\n %1\n")

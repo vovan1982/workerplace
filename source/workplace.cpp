@@ -473,6 +473,7 @@ void WorkPlace::on_actionEditDepart_triggered()
             ef->setWindowTitle(tr("Редактирование фирмы - [Только чтение]"));
         else
             ef->setWindowTitle(tr("Редактирование фирмы"));
+        ef->setAttribute(Qt::WA_DeleteOnClose);
         connect(ef,SIGNAL(editFirm(QString)),this,SLOT(editDepartment(QString)));
         ef->exec();
         return;
@@ -488,6 +489,7 @@ void WorkPlace::on_actionEditDepart_triggered()
             efp->setWindowTitle(tr("Редактирование филиала/представительства - [Только чтение]"));
         else
             efp->setWindowTitle(tr("Редактирование филиала/представительства"));
+        efp->setAttribute(Qt::WA_DeleteOnClose);
         connect(efp,SIGNAL(editFilPred(QString)),this,SLOT(editDepartment(QString)));
         efp->exec();
         return;
@@ -502,6 +504,7 @@ void WorkPlace::on_actionEditDepart_triggered()
         aed->setWindowTitle(tr("Редактирование подразделения - [Только чтение]"));
     else
         aed->setWindowTitle(tr("Редактирование подразделения"));
+    aed->setAttribute(Qt::WA_DeleteOnClose);
     connect(aed,SIGNAL(newDepartmentAdd(QString,bool)),this,SLOT(editDepartment(QString)));
     aed->exec();
 }
@@ -799,6 +802,7 @@ void WorkPlace::on_actionEditWP_triggered()
         aew->setWindowTitle(aew->windowTitle()+tr(" - [Только чтение]"));
     connect(aew,SIGNAL(wpDataChange()),this,SLOT(wpDataModelUpdate()));
     aew->setWindowFlags( Qt::Window );
+    aew->setAttribute(Qt::WA_DeleteOnClose);
     aew->exec();
 }
 void WorkPlace::on_actionDelWP_triggered()

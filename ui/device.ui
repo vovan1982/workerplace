@@ -21,7 +21,16 @@
    <property name="spacing">
     <number>2</number>
    </property>
-   <property name="margin">
+   <property name="leftMargin">
+    <number>2</number>
+   </property>
+   <property name="topMargin">
+    <number>2</number>
+   </property>
+   <property name="rightMargin">
+    <number>2</number>
+   </property>
+   <property name="bottomMargin">
     <number>2</number>
    </property>
    <item>
@@ -499,6 +508,18 @@
    </property>
    <property name="toolTip">
     <string>Копировать в буфер обмена</string>
+   </property>
+  </action>
+  <action name="actionCreateCopy">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/16x16/copy/ico/copy_16x16.png</normaloff>:/16x16/copy/ico/copy_16x16.png</iconset>
+   </property>
+   <property name="text">
+    <string>Сделать копию</string>
+   </property>
+   <property name="toolTip">
+    <string>Сделать копию устройства</string>
    </property>
   </action>
  </widget>

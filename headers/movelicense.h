@@ -22,7 +22,6 @@ private:
     QStandardItemModel *moveLicModel;
     LicenseModel *licModel;
     LockDataBase *lockedControl;
-    QTimer* timer;
     bool filterIsSet;
     bool accessForMove();
     void populateCBox(const QString &idName, const QString &tableName,

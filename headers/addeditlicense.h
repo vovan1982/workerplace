@@ -8,6 +8,7 @@
 
 class DeviceModelControl;
 class LicenseModel;
+class LockDataBase;
 
 class AddEditLicense : public QDialog, private Ui::AddEditLicense
 {
@@ -26,7 +27,7 @@ private:
     DeviceModelControl *devModel;
     LicenseModel *licModel;
     bool m_readOnly;
-    QTimer* timer;
+    LockDataBase *lockedControl;
     QMap<int,QString> deviceBindingChangesCache;
     void populateCBox(const QString &idName, const QString &tableName,
                       const QString &filter, const QString &nullStr, QComboBox *cBox);
@@ -49,7 +50,6 @@ private slots:
     void updateDevice();
     void setOrgTex(const QList<QVariant> &dev);
     void organizationIndexChanged();
-    void updateLockRecord();
     void on_buttonSelectPo_clicked();
     void on_buttonEditTypeLic_clicked();
     void on_buttonEditStateLic_clicked();

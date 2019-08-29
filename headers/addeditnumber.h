@@ -3,6 +3,8 @@
 
 #include "ui_addeditnumber.h"
 
+class LockDataBase;
+
 class AddEditNumber : public QDialog, private Ui::AddEditNumber
 {
     Q_OBJECT
@@ -14,7 +16,7 @@ public:
 private:
     QMap<QString,QVariant> m_data;
     bool m_editMode, m_readOnly;
-    QTimer* timer;
+    LockDataBase *lockedControl;
     void clearForm();
     bool dataEntered();
     bool formIsEmpty();
@@ -33,7 +35,6 @@ private slots:
     void on_number_textChanged();
     void on_note_textChanged();
     void on_editTypeNumber_clicked();
-    void updateLockRecord();
 protected:
     void changeEvent(QEvent *e);
     void closeEvent(QCloseEvent *event);

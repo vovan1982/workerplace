@@ -450,7 +450,13 @@ void FilterLicense::on_filterOaH_runButtonClicked()
 
 void FilterLicense::setSelectedData(QList<QVariant> datas)
 {
-    filterOaH->setText(datas.value(0).toString()+" - "+datas.value(6).toString());
+    QString deviceDisplayName = "";
+    if(datas.value(9).toString().isNull() || datas.value(9).toString().isEmpty())
+        deviceDisplayName = datas.value(0).toString()+"/"+datas.value(8).toString();
+    else
+        deviceDisplayName = datas.value(0).toString()+"/"+datas.value(9).toString()+"/"+datas.value(8).toString();
+    filterOaH->setText(deviceDisplayName);
+    filterOaH->setCursorPosition(0);
     filterOaH->setData(datas.value(1));
 }
 

@@ -6,6 +6,7 @@
 class QLabel;
 
 class DeviceModelControl;
+class LoadIndicator;
 
 class SelectDevice : public QDialog, private Ui::SelectDevice {
     Q_OBJECT
@@ -21,14 +22,14 @@ private:
     bool filterIsSet;
     QList<QVariant> selectedDev;
     DeviceModelControl *devModel;
+    LoadIndicator *li;
     bool loadIndicatorIsShowed, lockSelected;
 protected:
     void changeEvent(QEvent *e);
     void showEvent(QShowEvent *e);
+    void resizeEvent(QResizeEvent *event);
 signals:
     void selectedDevice(const QList<QVariant> &dev);
-    void loadIndicatorShowed();
-    void loadIndicatorClosed();
 private slots:
     void dataIsLoaded();
     void on_buttonClearFilter_clicked();

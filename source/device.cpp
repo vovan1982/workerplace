@@ -1,19 +1,21 @@
-#include <QtWidgets>
 #include <QtSql>
 #include <QMenu>
 #include <QMovie>
-#include <QMessageBox>
+#include <QtWidgets>
 #include <QClipboard>
+#include <QMessageBox>
+#include "headers/enums.h"
 #include "headers/device.h"
 #include "headers/movedevice.h"
+#include "headers/devicemodel.h"
+#include "headers/filterdevice.h"
+#include "headers/lockdatabase.h"
+#include "headers/loadindicator.h"
 #include "headers/addeditdevice.h"
 #include "headers/workplacemodel.h"
 #include "headers/selectworkplace.h"
-#include "headers/devicemodel.h"
 #include "headers/devicemodelcontrol.h"
-#include "headers/filterdevice.h"
 #include "headers/journalhistorymoved.h"
-#include "headers/lockdatabase.h"
 
 Device::Device(QWidget *parent, bool wpMode, int wpId, int wpFirmId, bool readOnly) :
     QWidget(parent), m_wpMode(wpMode), m_wpId(wpId), m_wpFirmId(wpFirmId), m_readOnly(readOnly)
@@ -40,6 +42,7 @@ Device::Device(QWidget *parent, bool wpMode, int wpId, int wpFirmId, bool readOn
     ag->addAction(actionAddNewDiviceInComposition);
     if(!wpMode)ag->addAction(actionDelDevice);
     ag->addAction(actionEditDevice);
+    ag->addAction(actionCreateCopy);
     ag->addAction(actionMoveDevice);
     ag->addAction(actionHistoryMoved);
     ag->addAction(actionCopyDeviceInBufer);
@@ -54,6 +57,7 @@ Device::Device(QWidget *parent, bool wpMode, int wpId, int wpFirmId, bool readOn
     db.setUserName(QSqlDatabase::database().userName());
     db.setPassword(QSqlDatabase::database().password());
 
+    li = new LoadIndicator(deviceView,tr("Подождите идёт загрузка..."));
     if(!wpMode)
         devModel = new DeviceModelControl(deviceView,deviceView,"default",db,wpDeviceFilter,false);
     else{
@@ -67,7 +71,6 @@ Device::Device(QWidget *parent, bool wpMode, int wpId, int wpFirmId, bool readOn
             this, SLOT(setAccessToActions(QModelIndex)));
     connect(deviceView, SIGNAL(customContextMenuRequested(const QPoint &)),this, SLOT(onDevMenu(const QPoint &)));
     connect(deviceView, SIGNAL(doubleClicked(QModelIndex)),this, SLOT(doubleClickedDeviceView(QModelIndex)));
-    connect(this, SIGNAL(loadIndicatorShowed()), SLOT(showLoadIndicator()), Qt::QueuedConnection);
 
     if(!wpMode){
         wpModel = new WorkPlaceModel(this);
@@ -104,24 +107,29 @@ void Device::showEvent(QShowEvent *e)
 {
     QWidget::showEvent( e );
     if (!loadIndicatorIsShowed){
-        emit loadIndicatorShowed();
+        showLoadIndicator();
         loadIndicatorIsShowed = true;
     }
+}
+void Device::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    li->updatePosition();
 }
 void Device::dataIsLoaded()
 {
     loadIndicatorIsShowed = true;
+    li->stop();
     if(devModel->model()->lastError().type() == QSqlError::NoError){
         if(devModel->model()->rowCount() != 0)
             devModel->setCurrentIndexFirstRow();
         actionAddDevice->setEnabled(true);
         actionAddNewDevice->setEnabled(true);
+        actionCreateCopy->setEnabled(true);
         buttonUpdate->setEnabled(true);
         buttonCopyAllInBufer->setEnabled(true);
         setAccessToActions();
-        emit loadIndicatorClosed();
     }else{
-        emit loadIndicatorClosed();
         QMessageBox::warning(this, tr("Ошибка"),
                                  tr("Ошибка получения данных об устройствах:\n %1").arg(devModel->model()->lastError().text()),
                                  tr("Закрыть"));
@@ -414,6 +422,7 @@ void Device::setAccessToActions(const QModelIndex &index)
         if(m_readOnly){
             actionAddDevice->setEnabled(false);
             actionAddNewDevice->setEnabled(false);
+            actionCreateCopy->setEnabled(false);
         }
     }else{
         if(!m_readOnly){
@@ -453,6 +462,7 @@ void Device::setAccessToActions(const QModelIndex &index)
             buttonClearDeviceFilter->setEnabled(filterIsSet);
             actionAddDevice->setEnabled(false);
             actionAddNewDevice->setEnabled(false);
+            actionCreateCopy->setEnabled(false);
             actionAddNewDiviceInComposition->setEnabled(false);
         }
     }
@@ -469,9 +479,9 @@ void Device::on_actionAddNewDevice_triggered()
     AddEditDevice *aed;
     if(!m_wpMode){
         aed = new AddEditDevice(this);
-        connect(aed,SIGNAL(deviceAdded()),this,SLOT(updateDevModel()));
+        connect(aed,SIGNAL(deviceAdded(int,int)),this,SLOT(insertNewRowOfDB(int,int)));
     }else{
-        aed = new AddEditDevice(this,1,0,m_wpId,wpName,false,false,QList<QVariant>(),true,m_wpFirmId);
+        aed = new AddEditDevice(this,1,0,Enums::FormModes::Add,QList<QVariant>(),m_wpId,wpName,Enums::WorkPlace,m_wpFirmId);
         connect(aed,SIGNAL(deviceAdded(int,int)),this,SLOT(insertNewRowOfDB(int,int)));
     }
     aed->exec();
@@ -485,6 +495,32 @@ void Device::on_actionAddDevice_triggered()
     connect(md,SIGNAL(devIsMoved()),this,SLOT(afterMove()));
     md->setAttribute(Qt::WA_DeleteOnClose);
     md->exec();
+}
+
+void Device::on_actionCreateCopy_triggered()
+{
+    AddEditDevice *aed;
+    QList<QVariant> r;
+    QModelIndex curViewIndex = devModel->realModelIndex(deviceView->currentIndex());
+    int parent_id;
+
+    for(int i=0; i<devModel->model()->columnCount(curViewIndex);i++)
+        r.append(devModel->model()->data(devModel->model()->index(curViewIndex.row(),i,curViewIndex.parent())));
+
+    parent_id = r.value(devModel->model()->cIndex.parent_id).toInt();
+
+    if(m_wpMode){
+        aed = new AddEditDevice(this,r.value(devModel->model()->cIndex.type).toInt(),
+                                parent_id,Enums::FormModes::Copy,r,m_wpId,wpName,Enums::WorkPlace,m_wpFirmId);
+        connect(aed,SIGNAL(deviceAdded(int,int)),this,SLOT(insertNewRowOfDB(int,int)));
+    }else{
+        aed = new AddEditDevice(this,r.value(devModel->model()->cIndex.type).toInt(),
+                                parent_id,Enums::FormModes::Copy,r,wpModel->index(0,0).data().toInt(),wpModel->index(0,3).data().toString());
+        connect(aed,SIGNAL(deviceAdded(int,int)),this,SLOT(insertNewRowOfDB(int,int)));
+    }
+
+    aed->setAttribute(Qt::WA_DeleteOnClose);
+    aed->exec();
 }
 
 void Device::on_actionDelDevice_triggered()
@@ -566,16 +602,17 @@ void Device::on_actionAddNewDiviceInComposition_triggered()
                                             curViewIndex.parent())
                 .data().toInt();
     if(!m_wpMode)
-        aed = new AddEditDevice(this,0,parentId,wpModel->data(wpModel->index(0,0)).toInt(),
-                                wpModel->data(wpModel->index(0,3)).toString(),true);
+        aed = new AddEditDevice(this,0,parentId,Enums::FormModes::Add,QList<QVariant>(),
+                                wpModel->data(wpModel->index(0,0)).toInt(), wpModel->data(wpModel->index(0,3)).toString());
     else
-        aed = new AddEditDevice(this,0,parentId,m_wpId,wpName,true);
-    connect(aed,SIGNAL(deviceAdded(int)),this,SLOT(insertNewRowOfDB(int)));
+        aed = new AddEditDevice(this,0,parentId,Enums::FormModes::Add,QList<QVariant>(),m_wpId,wpName);
+    connect(aed,SIGNAL(deviceAdded(int,int)),this,SLOT(insertNewRowOfDB(int,int)));
     aed->exec();
 }
 
 void Device::on_actionEditDevice_triggered()
 {
+    AddEditDevice *aed;
     int wpId;
     QList<QVariant> r;
     QModelIndex curViewIndex = devModel->realModelIndex(deviceView->currentIndex());
@@ -659,8 +696,10 @@ void Device::on_actionEditDevice_triggered()
         wpId = wpModel->index(0,0).data().toInt();
     for(int i=0; i<devModel->model()->columnCount(curViewIndex);i++)
         r.append(devModel->model()->data(devModel->model()->index(curViewIndex.row(),i,curViewIndex.parent())));
-    AddEditDevice *aed = new AddEditDevice(this,r.value(devModel->model()->cIndex.type).toInt(),0,
-                                           wpId,"",true,true,r,false,0,readOnly);
+    if(readOnly)
+        aed = new AddEditDevice(this,r.value(devModel->model()->cIndex.type).toInt(),0,Enums::FormModes::Read,r,wpId,"");
+    else
+        aed = new AddEditDevice(this,r.value(devModel->model()->cIndex.type).toInt(),0,Enums::FormModes::Edit,r,wpId,"");
     aed->setAttribute(Qt::WA_DeleteOnClose);
     connect(aed,SIGNAL(deviceDataChanged()),this,SLOT(updateDevRow()));
     aed->exec();
@@ -917,14 +956,9 @@ void Device::on_buttonClose_clicked()
 
 void Device::showLoadIndicator()
 {
-    int screenWidth, width;
-    int screenHeight, height;
-    int x, y;
-    QSize windowSize;
-    QLabel *load = new QLabel(deviceView);
-    QMovie *movie = new QMovie(":/animations/ico/animation/loading.gif");
     actionAddDevice->setEnabled(false);
     actionAddNewDevice->setEnabled(false);
+    actionCreateCopy->setEnabled(false);
     buttonUpdate->setEnabled(false);
     buttonCopyAllInBufer->setEnabled(false);
     actionAddNewDiviceInComposition->setEnabled(false);
@@ -936,18 +970,5 @@ void Device::showLoadIndicator()
     buttonMove->setEnabled(false);
     buttonDeviceFilter->setEnabled(false);
     buttonClearDeviceFilter->setEnabled(false);
-    load->setMovie(movie);
-    load->setAttribute(Qt::WA_DeleteOnClose);
-    connect(this,SIGNAL(loadIndicatorClosed()),load,SLOT(close()));
-    movie->start();
-    screenWidth = deviceView->width();
-    screenHeight = deviceView->height();
-    windowSize = load->size();
-    width = windowSize.width();
-    height = windowSize.height();
-    x = (screenWidth - width) / 2;
-    y = (screenHeight - height) / 2;
-    y -= 20;
-    load->move(x,y);
-    load->show();
+    li->start();
 }

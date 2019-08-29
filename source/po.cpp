@@ -13,8 +13,6 @@ Po::Po(QWidget *parent, int curId) :
     QWidget(parent){
     setupUi(this);
     readOnly = false;
-    timer = new QTimer(this);
-    connect(timer,SIGNAL(timeout()),this,SLOT(updateLockReferenceBook()));
     poModel = new PoModel(viewPo);
     viewPo->setModel(poModel);
     populatePoModel();
@@ -45,7 +43,7 @@ Po::Po(QWidget *parent, int curId) :
     actionsButton->setMenu(menu);
     connect(viewPo, SIGNAL(customContextMenuRequested(const QPoint &)),this, SLOT(onPoMenu(const QPoint &)));
 
-    LockDataBase *lockedControl = new LockDataBase(this);
+    lockedControl = new LockDataBase(this);
     if(lockedControl->referenceBookIsLocked("po")){
         readOnly = true;
         setWindowTitle(windowTitle()+tr(" - [Только чттение]"));
@@ -62,13 +60,7 @@ Po::Po(QWidget *parent, int curId) :
                                  tr("Закрыть"));
             return;
         }else{
-            if(!lockedControl->lockReferenceBook("po"))
-                QMessageBox::warning(this,tr("Ошибка!!!"),
-                                     tr("Не удалось заблокировать выбранный справочник:\n %1\n")
-                                     .arg(lockedControl->lastError().text()),
-                                     tr("Закрыть"));
-            else
-                timer->start(30000);
+            lockedControl->lockReferenceBookThread("po");
         }
     }
 }
@@ -382,19 +374,6 @@ void Po::showCloseButton(bool show)
 {
     closeButton->setVisible(show);
 }
-void Po::updateLockReferenceBook()
-{
-    if(!readOnly){
-        LockDataBase *lockedControl = new LockDataBase(this);
-        if(!lockedControl->lockReferenceBook("po")){
-            timer->stop();
-            QMessageBox::warning(this,tr("Ошибка!!!"),
-                                 tr("Не удалось продлить блокировку выбраного справочника:\n %1\n")
-                                 .arg(lockedControl->lastError().text()),
-                                 tr("Закрыть"));
-        }
-    }
-}
 void Po::changeEvent(QEvent *e)
 {
     QWidget::changeEvent(e);
@@ -408,8 +387,8 @@ void Po::changeEvent(QEvent *e)
 }
 void Po::closeEvent(QCloseEvent *event)
 {
-    LockDataBase *lockedControl = new LockDataBase(this);
     if(!readOnly){
+        lockedControl->stopLockReferenceBookThread("po");
         if(!lockedControl->unlockReferenceBook("po"))
             QMessageBox::warning(this,tr("Ошибка!!!"),
                                  tr("Не удалось разблокировать справочник:\n %1\n")

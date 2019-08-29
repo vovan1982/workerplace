@@ -4,6 +4,7 @@
 #include "ui_licenses.h"
 
 class LicenseModelControl;
+class LoadIndicator;
 
 class Licenses : public QWidget, private Ui::Licenses
 {
@@ -13,22 +14,28 @@ public:
     explicit Licenses(QWidget *parent = 0, bool readOnly = false);
 private:
     LicenseModelControl *lModel;
+    LoadIndicator *li;
     QString licenseFilter;
     bool filterIsSet;
     bool m_readOnly;
+    bool dontShowLoadindicator;
     QMenu *menu;
     QString readDataModel(const QModelIndex &index);
+protected:
+    void showEvent(QShowEvent *e);
+    void resizeEvent(QResizeEvent *event);
+    void changeEvent(QEvent *e);
 signals:
     void closeLicWin();
-protected:
-    void changeEvent(QEvent *e);
 private slots:
+    void dataIsLoaded();
     void onLicMenu(const QPoint &p);
     void doubleClickedLicenseView();
     void updateLicenseModel();
     void updateLicenseRow();
     void setAccessToActions(const QModelIndex &index = QModelIndex());
     void setFilter(const QString &filter);
+    void showLoadIndicator();
     void on_closeButton_clicked();
     void on_actionAddLicense_triggered();
     void on_actionEditLicense_triggered();

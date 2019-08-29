@@ -4,6 +4,8 @@
 #include <QSqlRecord>
 #include "ui_addeditprovider.h"
 
+class LockDataBase;
+
 class AddEditProvider : public QDialog, private Ui::AddEditProvider {
     Q_OBJECT
 public:
@@ -12,7 +14,7 @@ private:
     bool m_editMode;
     QSqlRecord m_rec;
     bool m_readOnly;
-    QTimer* timer;
+    LockDataBase *lockedControl;
     bool formIsEmpty();
     void clearForm();
     bool dataChanged();
@@ -30,7 +32,6 @@ private slots:
     void on_phone_textEdited();
     void on_email_textEdited();
     void on_www_textEdited();
-    void updateLockRecord();
 };
 
 #endif // ADDEDITPROVIDER_H

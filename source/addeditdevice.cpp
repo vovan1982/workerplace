@@ -1,7 +1,6 @@
 #include <QtSql>
 #include <QtWidgets>
 #include <QMessageBox>
-#include "headers/enums.h"
 #include "headers/edittable.h"
 #include "headers/devicemodel.h"
 #include "headers/editprovider.h"
@@ -16,21 +15,13 @@
 #include "headers/editandselectproducer.h"
 #include "headers/addeditnetworkinterface.h"
 
-AddEditDevice::AddEditDevice(QWidget *parent, int type, int parent_id, int workPlaceId, const QString &workPlaceName,
-                             bool compositionMode, bool editMode, const QList<QVariant> &rec, bool wpMode, int firmId, bool readOnly) :
-    QDialog(parent), m_type(type), m_parent_id(parent_id), m_workPlaceId(workPlaceId), m_workPlaceName(workPlaceName),
-    m_compositionMode(compositionMode), m_editMode(editMode), m_rec(rec), m_wpMode(wpMode), m_firmId(firmId), m_readOnly(readOnly)
+AddEditDevice::AddEditDevice(QWidget *parent, int type, int parent_id, Enums::FormModes formMode,
+              const QList<QVariant> &rec, int workPlaceId, const QString &workPlaceName, Enums::Modes mode, int firmId) :
+    QDialog(parent), m_type(type), m_parent_id(parent_id), m_formMode(formMode),m_rec(rec),
+    m_workPlaceId(workPlaceId), m_workPlaceName(workPlaceName), m_mode(mode)
 {
     setupUi(this);
 
-    // Если тип устройства оргтехника, скрыть поле выбора родительской оргтехники, иначе удалить вкладку сеть
-    if(type == 1){
-        label_12->setVisible(false);
-        orgTex->setVisible(false);
-    }else{
-        tabWidget->removeTab(3);
-        tabWidget->removeTab(2);
-    }
     /*Установка значений поумолчанию, инициализация моделей, заполнение комбобоксов*/
     {
         interfaceIsChanged = false;
@@ -65,39 +56,49 @@ AddEditDevice::AddEditDevice(QWidget *parent, int type, int parent_id, int workP
         populateCBox("CodProducer","producer","","<Выберите производителя>",producer);
         populateCBox("CodDomainWg","domainwg","","<Выберите Домен/Рабочую группу>",domainWg);
     }
-    // Если тип устройства комплектующее и активирован режим нахождения в составе устройства
-    if(type == 0 && compositionMode){
-        /*Получаем и устанавливаем код организации и наименование родительского устройства*/
-        {
-            QSqlQuery query;
-            bool ok;
-            ok = query.exec(QString("SELECT CodOrganization, Name FROM device WHERE id = %1").arg(parent_id));
-            if(!ok){
-                QMessageBox::warning(this, tr("Ошибка"),
-                                         tr("Не удалось получить информацию о родительской оргтехнике:\n %1")
-                                         .arg(query.lastError().text()),
-                                         tr("Закрыть"));
-            }else{
-                if(query.size()>0){
-                    query.next();
-                    organization->setCurrentIndex(organization->findData(query.value(0)));
-                    orgTex->setText(query.value(1).toString());
-                    m_parent_id = parent_id;
+    // Если тип устройства оргтехника, скрыть поле выбора родительской оргтехники, иначе удалить вкладку сеть
+    if(type == 1){
+        label_12->setVisible(false);
+        orgTex->setVisible(false);
+    }else{
+        typeHardware->setChecked(true);
+        on_typeHardware_clicked(true);
+    }
+    // Если тип устройства комплектующее и нахождится в составе устройства
+    if(type == 0 && parent_id > 0){
+        QSqlQuery query;
+        bool ok;
+        if(formMode != Enums::FormModes::Copy){
+            /*Получаем и устанавливаем код организации и наименование родительского устройства*/
+            {
+                ok = query.exec(QString("SELECT CodOrganization, Name FROM device WHERE id = %1").arg(parent_id));
+                if(!ok){
+                    QMessageBox::warning(this, tr("Ошибка"),
+                                             tr("Не удалось получить информацию о родительской оргтехнике:\n %1")
+                                             .arg(query.lastError().text()),
+                                             tr("Закрыть"));
+                }else{
+                    if(query.size()>0){
+                        query.next();
+                        organization->setCurrentIndex(organization->findData(query.value(0)));
+                        orgTex->setText(query.value(1).toString());
+                        m_parent_id = parent_id;
+                    }
                 }
             }
+            workPlace->setText(workPlaceName);
+            m_workPlaceId = workPlaceId;
+            organization->setEnabled(false);
+            workPlace->setEnabled(false);
+            workPlace->setEnabledRunButtron(false);
+            orgTex->setEnabled(false);
+            orgTex->setEnabledClearButtron(false);
+            orgTex->setEnabledRunButtron(false);
+            groupBox_2->setVisible(false);
         }
-        workPlace->setText(workPlaceName);
-        m_workPlaceId = workPlaceId;
-        organization->setEnabled(false);
-        workPlace->setEnabled(false);
-        workPlace->setEnabledRunButtron(false);
-        orgTex->setEnabled(false);
-        orgTex->setEnabledClearButtron(false);
-        orgTex->setEnabledRunButtron(false);
-        groupBox_2->setVisible(false);
     }
     // Если активирован режим рабочего места
-    if(wpMode){
+    if(mode == Enums::WorkPlace){
         organization->setCurrentIndex(organization->findData(firmId));
         workPlace->setText(workPlaceName);
         m_workPlaceId = workPlaceId;
@@ -107,7 +108,7 @@ AddEditDevice::AddEditDevice(QWidget *parent, int type, int parent_id, int workP
         orgTex->setEnabledRunButtron(true);
     }
     // Если активирован режим редактирования
-    if(editMode){
+    if(formMode == Enums::FormModes::Edit){
         label->setVisible(false);
         workPlace->setVisible(false);
         label_8->setVisible(false);
@@ -115,6 +116,7 @@ AddEditDevice::AddEditDevice(QWidget *parent, int type, int parent_id, int workP
         label_12->setVisible(false);
         orgTex->setVisible(false);
         groupBox_2->setVisible(false);
+        doNotClearForm->setVisible(false);
         this->setWindowTitle(tr("Редактирование устроства"));
         setDefaultEditData();
 
@@ -122,45 +124,92 @@ AddEditDevice::AddEditDevice(QWidget *parent, int type, int parent_id, int workP
         interfaceModel->setFilter(QString("CodDevice = %1").arg(m_rec.value(dm->cIndex.id).toInt()));
         lm->setFilter(QString("`key` IN (SELECT CodLicense FROM licenseanddevice WHERE CodDevice = %1)").arg(m_rec.value(dm->cIndex.id).toInt()));
 
-        // Если активирован режим только чтение, переводим форму в режим чтения иначе запускаем блокировку записи устройства в БД
-        if(readOnly){
-            typeDevice->setEnabled(false);
-            buttonEditTypeDevice->setEnabled(false);
-            name->setReadOnly(true);
-            networkName->setReadOnly(true);
-            inventoryN->setReadOnly(true);
-            serialN->setReadOnly(true);
-            provider->setEnabled(false);
-            buttonEditProvider->setEnabled(false);
-            producer->setEnabled(false);
-            buttonEditProducer->setEnabled(false);
-            checkBoxDate1->setEnabled(false);
-            datePurchase->setEnabled(false);
-            checkBoxDate3->setEnabled(false);
-            datePosting->setEnabled(false);
-            checkBoxDate2->setEnabled(false);
-            endGuarantee->setEnabled(false);
-            price->setEnabled(false);
-            state->setEnabled(false);
-            domainWg->setEnabled(false);
-            buttonEditState->setEnabled(false);
-            note->setEnabled(false);
-            detailDescription->setReadOnly(true);
-            buttonAddInterface->setEnabled(false);
-            actionAddInterface->setEnabled(false);
-        }else{
-            timer = new QTimer(this);
-            LockDataBase *lockedControl = new LockDataBase(this);
-            if(!lockedControl->lockRecord(m_rec.value(dm->cIndex.id).toInt(),dm->colTabName.id,dm->nameModelTable())){
-                QMessageBox::warning(this,tr("Ошибка!!!"),
-                                     tr("Не удалось заблокировать запись:\n %1\n")
-                                     .arg(lockedControl->lastError().text()),
+        // Запускаем блокировку записи устройства в БД
+        lockedControl = new LockDataBase(this);
+        lockedControl->lockRecordThread(m_rec.value(dm->cIndex.id).toInt(),dm->colTabName.id,dm->nameModelTable());
+    }
+    // Если активирован режим только чтение
+    if(formMode == Enums::FormModes::Read){
+        label->setVisible(false);
+        workPlace->setVisible(false);
+        label_8->setVisible(false);
+        organization->setVisible(false);
+        label_12->setVisible(false);
+        orgTex->setVisible(false);
+        groupBox_2->setVisible(false);
+        doNotClearForm->setVisible(false);
+        this->setWindowTitle(tr("Только чтение"));
+        setDefaultEditData();
+
+        // Устанавливаем фильтры для моделей интерфейсвов и лицензий на основании выбранного устройства
+        interfaceModel->setFilter(QString("CodDevice = %1").arg(m_rec.value(dm->cIndex.id).toInt()));
+        lm->setFilter(QString("`key` IN (SELECT CodLicense FROM licenseanddevice WHERE CodDevice = %1)").arg(m_rec.value(dm->cIndex.id).toInt()));
+
+        // Переводим форму в режим чтения
+        typeDevice->setEnabled(false);
+        buttonEditTypeDevice->setEnabled(false);
+        name->setReadOnly(true);
+        networkName->setReadOnly(true);
+        inventoryN->setReadOnly(true);
+        serialN->setReadOnly(true);
+        provider->setEnabled(false);
+        buttonEditProvider->setEnabled(false);
+        producer->setEnabled(false);
+        buttonEditProducer->setEnabled(false);
+        checkBoxDate1->setEnabled(false);
+        datePurchase->setEnabled(false);
+        checkBoxDate3->setEnabled(false);
+        datePosting->setEnabled(false);
+        checkBoxDate2->setEnabled(false);
+        endGuarantee->setEnabled(false);
+        price->setEnabled(false);
+        state->setEnabled(false);
+        domainWg->setEnabled(false);
+        buttonEditState->setEnabled(false);
+        note->setEnabled(false);
+        detailDescription->setReadOnly(true);
+        buttonAddInterface->setEnabled(false);
+        actionAddInterface->setEnabled(false);
+        actionAddNewLicense->setEnabled(false);
+        addNewLicenseButton->setEnabled(false);
+        actionSelectlicense->setEnabled(false);
+        selectLicenseButton->setEnabled(false);
+        actionDelLicense->setEnabled(false);
+        deleteLicenseButton->setEnabled(false);
+
+    }
+    // Если активирован режим создания копии устройства
+    if(formMode == Enums::FormModes::Copy){
+        setDefaultEditData();
+        workPlace->setText(workPlaceName);
+        m_workPlaceId = workPlaceId;
+        if(type == 0) orgTex->setEnabledRunButtron(true);
+        if(parent_id > 0){
+            QSqlQuery query;
+            bool ok;
+            //Получаем и устанавливаем наименование родительского устройства
+            ok = query.exec(QString("SELECT Name FROM device WHERE id = %1").arg(parent_id));
+            if(!ok){
+                QMessageBox::warning(this, tr("Ошибка"),
+                                     tr("Не удалось получить информацию о родительской оргтехнике:\n %1")
+                                     .arg(query.lastError().text()),
                                      tr("Закрыть"));
             }else{
-                connect(timer,SIGNAL(timeout()),this,SLOT(updateLockRecord()));
-                timer->start(30000);
+                if(query.size()>0){
+                    query.next();
+                    orgTex->setText(query.value(0).toString());
+                    m_parent_id = parent_id;
+                }
             }
         }
+        if(dataEntered())
+            buttonSave->setEnabled(true);
+        else
+            buttonSave->setEnabled(false);
+        if(formIsEmpty())
+            buttonCancel->setEnabled(false);
+        else
+            buttonCancel->setEnabled(true);
     }
     /*Заполнение и настройка модели Интерфейсы. Привязка мотели к вьюхе. Настройка режима редактирования*/
     {
@@ -182,7 +231,7 @@ AddEditDevice::AddEditDevice(QWidget *parent, int type, int parent_id, int workP
 
         if(interfaceModel->rowCount() > 0){
             interfaceView->setCurrentIndex(interfaceModel->index(0,0));
-            if(!readOnly){
+            if(formMode != Enums::FormModes::Read){
                 buttonChangeInterface->setEnabled(true);
                 buttonDelInterface->setEnabled(true);
                 actionChangeInterface->setEnabled(true);
@@ -226,7 +275,7 @@ AddEditDevice::AddEditDevice(QWidget *parent, int type, int parent_id, int workP
 
         if(lm->rowCount() > 0){
             licenseView->setCurrentIndex(lm->index(0,0));
-            if(!readOnly){
+            if(formMode != Enums::FormModes::Read){
                 changeLicenseButton->setEnabled(true);
                 deleteLicenseButton->setEnabled(true);
                 actionEditLicense->setEnabled(true);
@@ -248,9 +297,11 @@ AddEditDevice::AddEditDevice(QWidget *parent, int type, int parent_id, int workP
 void AddEditDevice::clearForm()
 {
     // (если тип устройства комплектующее и находтся в составе устройства) или режим рабочего места
-    if((m_type == 0 && m_compositionMode) || m_wpMode){
+    if((m_type == 0 && m_parent_id > 0) || m_mode == Enums::WorkPlace){
         /*Очистка основных полей формы, вкладка Основное*/
         {
+            if(m_formMode == Enums::FormModes::Copy && m_mode != Enums::WorkPlace)
+                organization->setCurrentIndex(0);
             typeDevice->setCurrentIndex(0);
             name->setText("");
             networkName->setText("");
@@ -271,7 +322,7 @@ void AddEditDevice::clearForm()
             state->setCurrentIndex(0);
             domainWg->setCurrentIndex(0);
             note->setText("");
-            if(m_wpMode){
+            if(m_mode == Enums::WorkPlace){
                 m_parent_id = 0;
                 orgTex->clear();
             }
@@ -385,7 +436,7 @@ bool AddEditDevice::dataEntered()
 /* Функция проверки является ли форма пустой*/
 bool AddEditDevice::formIsEmpty()
 {
-    if(m_type == 0 && m_compositionMode){
+    if(m_type == 0 && m_parent_id > 0){
         if(typeDevice->currentIndex() == 0 &&
                 (name->text().isNull() || name->text().isEmpty()) && (inventoryN->text().isNull() || inventoryN->text().isEmpty()) &&
                 (serialN->text().isNull() || serialN->text().isEmpty()) && provider->currentIndex() == 0 && producer->currentIndex() == 0 &&
@@ -396,7 +447,7 @@ bool AddEditDevice::formIsEmpty()
             return true;
         else
             return false;
-    }else if(m_wpMode){
+    }else if(m_mode == Enums::WorkPlace){
         if(m_parent_id == 0 && typeDevice->currentIndex() == 0 &&
                 (name->text().isNull() || name->text().isEmpty()) && (inventoryN->text().isNull() || inventoryN->text().isEmpty()) &&
                 (serialN->text().isNull() || serialN->text().isEmpty()) && provider->currentIndex() == 0 && producer->currentIndex() == 0 &&
@@ -616,7 +667,7 @@ void AddEditDevice::setDefaultEditData()
 }
 void AddEditDevice::on_buttonCancel_clicked()
 {
-    if(!m_editMode)
+    if(m_formMode != Enums::FormModes::Edit)
         clearForm();
     else
         setDefaultEditData();
@@ -628,7 +679,7 @@ void AddEditDevice::on_organization_currentIndexChanged(int index)
     else
         buttonSave->setEnabled(false);
 
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         workPlace->clear();
         m_workPlaceId = 0;
         m_parent_id = 0;
@@ -639,7 +690,7 @@ void AddEditDevice::on_organization_currentIndexChanged(int index)
         buttonCancel->setEnabled(false);
     else
         buttonCancel->setEnabled(true);
-    if(!m_wpMode)
+    if(m_mode != Enums::WorkPlace)
         orgTex->setEnabledRunButtron(false);
     if(index <= 0)
         workPlace->setEnabledRunButtron(false);
@@ -660,7 +711,7 @@ void AddEditDevice::on_workPlace_textChanged()
 }
 void AddEditDevice::on_name_textChanged()
 {
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(dataEntered())
             buttonSave->setEnabled(true);
         else
@@ -685,7 +736,7 @@ void AddEditDevice::on_name_textChanged()
 }
 void AddEditDevice::on_networkName_textChanged()
 {
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(dataEntered())
             buttonSave->setEnabled(true);
         else
@@ -710,7 +761,7 @@ void AddEditDevice::on_networkName_textChanged()
 }
 void AddEditDevice::on_typeDevice_currentIndexChanged(int)
 {
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(dataEntered())
             buttonSave->setEnabled(true);
         else
@@ -735,7 +786,7 @@ void AddEditDevice::on_typeDevice_currentIndexChanged(int)
 }
 void AddEditDevice::on_inventoryN_textChanged()
 {
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(formIsEmpty())
             buttonCancel->setEnabled(false);
         else
@@ -755,7 +806,7 @@ void AddEditDevice::on_inventoryN_textChanged()
 }
 void AddEditDevice::on_serialN_textChanged()
 {
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(formIsEmpty())
             buttonCancel->setEnabled(false);
         else
@@ -775,7 +826,7 @@ void AddEditDevice::on_serialN_textChanged()
 }
 void AddEditDevice::on_price_valueChanged(double)
 {
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(formIsEmpty())
             buttonCancel->setEnabled(false);
         else
@@ -795,7 +846,7 @@ void AddEditDevice::on_price_valueChanged(double)
 }
 void AddEditDevice::on_state_currentIndexChanged(int)
 {
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(dataEntered())
             buttonSave->setEnabled(true);
         else
@@ -820,7 +871,7 @@ void AddEditDevice::on_state_currentIndexChanged(int)
 }
 void AddEditDevice::on_note_textChanged()
 {
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(formIsEmpty())
             buttonCancel->setEnabled(false);
         else
@@ -840,7 +891,7 @@ void AddEditDevice::on_note_textChanged()
 }
 void AddEditDevice::on_detailDescription_textChanged()
 {
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(formIsEmpty())
             buttonCancel->setEnabled(false);
         else
@@ -860,7 +911,7 @@ void AddEditDevice::on_detailDescription_textChanged()
 }
 void AddEditDevice::on_provider_currentIndexChanged(int /*index*/)
 {
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(formIsEmpty())
             buttonCancel->setEnabled(false);
         else
@@ -880,7 +931,7 @@ void AddEditDevice::on_provider_currentIndexChanged(int /*index*/)
 }
 void AddEditDevice::on_producer_currentIndexChanged(int)
 {
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(formIsEmpty())
             buttonCancel->setEnabled(false);
         else
@@ -900,7 +951,7 @@ void AddEditDevice::on_producer_currentIndexChanged(int)
 }
 void AddEditDevice::on_domainWg_currentIndexChanged(int)
 {
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(formIsEmpty())
             buttonCancel->setEnabled(false);
         else
@@ -920,7 +971,7 @@ void AddEditDevice::on_domainWg_currentIndexChanged(int)
 }
 void AddEditDevice::on_checkBoxDate1_clicked(bool check)
 {
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(!check)
             datePurchase->setDate(QDate::currentDate());
         if(formIsEmpty())
@@ -942,7 +993,7 @@ void AddEditDevice::on_checkBoxDate1_clicked(bool check)
 }
 void AddEditDevice::on_checkBoxDate2_clicked(bool check)
 {
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(!check)
             endGuarantee->setDate(QDate::currentDate());
         if(formIsEmpty())
@@ -965,7 +1016,7 @@ void AddEditDevice::on_checkBoxDate2_clicked(bool check)
 }
 void AddEditDevice::on_checkBoxDate3_clicked(bool check)
 {
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(!check)
             datePosting->setDate(QDate::currentDate());
         if(formIsEmpty())
@@ -1045,7 +1096,7 @@ void AddEditDevice::setOrgTex(const QList<QVariant> &orgTexData)
 {
     m_parent_id = orgTexData.value(dm->cIndex.id).toInt();
     orgTex->setText(orgTexData.value(dm->cIndex.name).toString());
-    if(m_wpMode){
+    if(m_mode == Enums::WorkPlace){
         if(formIsEmpty())
             buttonCancel->setEnabled(false);
         else
@@ -1078,7 +1129,7 @@ void AddEditDevice::on_buttonSave_clicked()
     QString field, val, queryStr;
     int lastId;
     // Если не активирован режим редактирования
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         /*Заполняем поля и значеня для запроса добавления нового устройства*/
         {
             field = "("; val = "(";
@@ -1173,6 +1224,7 @@ void AddEditDevice::on_buttonSave_clicked()
                     actionChangeInterface->setEnabled(true);
                     actionDelInterface->setEnabled(true);
                 }
+                interfaceIsChanged = false;
             }
         }
         /*Сохраняем лицензии и связи между устройством и лицензиями*/
@@ -1201,24 +1253,16 @@ void AddEditDevice::on_buttonSave_clicked()
                         }
                         lm->setData(lm->index(i,lm->cIndex.statusRow),"");
                     }
+                    licenseIsChanged = false;
                 }
             }
         }
 
-        /* Отправляем сигнал о добавлении нового устройства*/
-        {
-            // Если тип устройства комплектующее и включен режим в составе устройства, отправляем сигнал с ID нового устройства
-            // Иначе Если активирован режим рабочего места, отправляем сигнал с ID нового устройства и его родителем
-            // Иначе отправляем просто сигнал
-            if(m_type == 0 && m_compositionMode)
-                emit deviceAdded(lastId);
-            else if(m_wpMode)
-                emit deviceAdded(lastId,m_parent_id);
-            else
-                emit deviceAdded();
-        }
-        // Очищаем форму
-        clearForm();
+        // Отправляем сигнал о добавлении нового устройства
+        emit deviceAdded(lastId,m_parent_id);
+        // Очищаем форму если не установленна галочка запрета очистки
+        if(!doNotClearForm->isChecked())
+            clearForm();
     }else{
         /*Заполняем поля и значеня для запроса обновления данных об устройстве*/
         {
@@ -1334,6 +1378,7 @@ void AddEditDevice::on_buttonSave_clicked()
                     actionChangeInterface->setEnabled(true);
                     actionDelInterface->setEnabled(true);
                 }
+                interfaceIsChanged = false;
             }
         }
         /*Сохраняем изменения в связях с лицензиями*/
@@ -1376,6 +1421,7 @@ void AddEditDevice::on_buttonSave_clicked()
                                 }
                             }
                         }
+                        licenseIsChanged = false;
                     }
                     licenseView->setCurrentIndex(lm->index(0,0));
                 }else{
@@ -1385,7 +1431,8 @@ void AddEditDevice::on_buttonSave_clicked()
                                                  tr("При добавлении лицензий возникла ошибка:\n %1")
                                                  .arg(lm->getLastError().text()),
                                                  tr("Закрыть"));
-                    }
+                    }else
+                        licenseIsChanged = false;
                 }
                 if(licenseIdToUntie.size() > 0){
                     for(int i = 0; i<licenseIdToUntie.size();i++){
@@ -1412,9 +1459,18 @@ void AddEditDevice::on_buttonSave_clicked()
             m_rec.replace(dm->cIndex.serialN,serialN->text());
             m_rec.replace(dm->cIndex.codProvider,provider->itemData(provider->currentIndex()));
             m_rec.replace(dm->cIndex.codProducer,producer->itemData(producer->currentIndex()));
-            m_rec.replace(dm->cIndex.datePurchase,datePurchase->date());
-            m_rec.replace(dm->cIndex.datePosting,datePosting->date());
-            m_rec.replace(dm->cIndex.endGuarantee,endGuarantee->date());
+            if(checkBoxDate1->isChecked())
+                m_rec.replace(dm->cIndex.datePurchase,datePurchase->date());
+            else
+                m_rec.replace(dm->cIndex.datePurchase,QVariant());
+            if(checkBoxDate3->isChecked())
+                m_rec.replace(dm->cIndex.datePosting,datePosting->date());
+            else
+                m_rec.replace(dm->cIndex.datePosting,QVariant());
+            if(checkBoxDate2->isChecked())
+                m_rec.replace(dm->cIndex.endGuarantee,endGuarantee->date());
+            else
+                m_rec.replace(dm->cIndex.endGuarantee,QVariant());
             m_rec.replace(dm->cIndex.price,price->value());
             m_rec.replace(dm->cIndex.codState,state->itemData(state->currentIndex()));
             m_rec.replace(dm->cIndex.note,note->text());
@@ -1469,32 +1525,34 @@ void AddEditDevice::on_typeHardware_clicked(bool checked)
 }
 void AddEditDevice::on_buttonClose_clicked()
 {
-    if(m_editMode){
-        if(!m_readOnly){
-            timer->stop();
-            delete timer;
-            LockDataBase *lockedControl = new LockDataBase(this);
-            if(!lockedControl->unlockRecord(m_rec.value(dm->cIndex.id).toInt(),dm->colTabName.id,dm->nameModelTable())){
-                QMessageBox::warning(this,tr("Ошибка!!!"),
-                                     tr("Не удалось разблокировать запись:\n %1\n")
-                                     .arg(lockedControl->lastError().text()),
-                                     tr("Закрыть"));
+    if(m_formMode == Enums::FormModes::Edit){
+        int button;
+        if(dataChanged()){
+            button = QMessageBox::question(this, tr("Внимание"),
+                                     tr("Есть не сохранённые данные.\nХотите сохранить их?"),
+                                     tr("Да"),tr("Нет"),"",0,1);
+            if(button == 0){
+                if(!dataEntered()){
+                    button = QMessageBox::question(this, tr("Внимание"),
+                                             tr("Отсутствуют данные обязательные для заполнения.\nЗакрыть без сохранения?"),
+                                             tr("Да"),tr("Нет"),"",1,1);
+                    if(button == 1) return;
+                }else{
+                    on_buttonSave_clicked();
+                }
             }
+        }
+
+        lockedControl->stopLockRecordThread(m_rec.value(dm->cIndex.id).toInt());
+        if(!lockedControl->unlockRecord(m_rec.value(dm->cIndex.id).toInt(),dm->colTabName.id,dm->nameModelTable())){
+            QMessageBox::warning(this,tr("Ошибка!!!"),
+                                 tr("Не удалось разблокировать запись:\n %1\n")
+                                 .arg(lockedControl->lastError().text()),
+                                 tr("Закрыть"));
         }
     }
     delete dm;
     reject();
-}
-void AddEditDevice::updateLockRecord()
-{
-    LockDataBase *lockedControl = new LockDataBase(this);
-    if(!lockedControl->lockRecord(m_rec.value(dm->cIndex.id).toInt(),dm->colTabName.id,dm->nameModelTable())){
-        QMessageBox::warning(this,tr("Ошибка!!!"),
-                             tr("Не удалось продлить блокировку записи:\n %1\n")
-                             .arg(lockedControl->lastError().text()),
-                             tr("Закрыть"));
-        timer->stop();
-    }
 }
 void AddEditDevice::changeEvent(QEvent *e)
 {
@@ -1508,26 +1566,74 @@ void AddEditDevice::changeEvent(QEvent *e)
     }
 }
 void AddEditDevice::closeEvent(QCloseEvent *event){
-    if(m_editMode){
-        if(!m_readOnly){
-            timer->stop();
-            delete timer;
-            LockDataBase *lockedControl = new LockDataBase(this);
+    if(m_formMode == Enums::FormModes::Edit){
+        int button;
+        if(dataChanged()){
+            button = QMessageBox::question(this, tr("Внимание"),
+                                     tr("Есть не сохранённые данные.\nХотите сохранить их?"),
+                                     tr("Да"),tr("Нет"),"",0,1);
+            if(button == 0){
+                if(!dataEntered()){
+                    button = QMessageBox::question(this, tr("Внимание"),
+                                             tr("Отсутствуют данные обязательные для заполнения.\nЗакрыть без сохранения?"),
+                                             tr("Да"),tr("Нет"),"",1,1);
+                    if(button == 1)
+                        event->ignore();
+                    else{
+                        lockedControl->stopLockRecordThread(m_rec.value(dm->cIndex.id).toInt());
+                        if(!lockedControl->unlockRecord(m_rec.value(dm->cIndex.id).toInt(),dm->colTabName.id,dm->nameModelTable())){
+                            QMessageBox::warning(this,tr("Ошибка!!!"),
+                                                 tr("Не удалось разблокировать запись:\n %1\n")
+                                                 .arg(lockedControl->lastError().text()),
+                                                 tr("Закрыть"));
+                        }
+                        delete dm;
+                        event->accept();
+                    }
+                }else{
+                    on_buttonSave_clicked();
+                    lockedControl->stopLockRecordThread(m_rec.value(dm->cIndex.id).toInt());
+                    if(!lockedControl->unlockRecord(m_rec.value(dm->cIndex.id).toInt(),dm->colTabName.id,dm->nameModelTable())){
+                        QMessageBox::warning(this,tr("Ошибка!!!"),
+                                             tr("Не удалось разблокировать запись:\n %1\n")
+                                             .arg(lockedControl->lastError().text()),
+                                             tr("Закрыть"));
+                    }
+                    delete dm;
+                    event->accept();
+                }
+            }else{
+                lockedControl->stopLockRecordThread(m_rec.value(dm->cIndex.id).toInt());
+                if(!lockedControl->unlockRecord(m_rec.value(dm->cIndex.id).toInt(),dm->colTabName.id,dm->nameModelTable())){
+                    QMessageBox::warning(this,tr("Ошибка!!!"),
+                                         tr("Не удалось разблокировать запись:\n %1\n")
+                                         .arg(lockedControl->lastError().text()),
+                                         tr("Закрыть"));
+                }
+                delete dm;
+                event->accept();
+            }
+        }else{
+            lockedControl->stopLockRecordThread(m_rec.value(dm->cIndex.id).toInt());
             if(!lockedControl->unlockRecord(m_rec.value(dm->cIndex.id).toInt(),dm->colTabName.id,dm->nameModelTable())){
                 QMessageBox::warning(this,tr("Ошибка!!!"),
                                      tr("Не удалось разблокировать запись:\n %1\n")
                                      .arg(lockedControl->lastError().text()),
                                      tr("Закрыть"));
             }
+            delete dm;
+            event->accept();
         }
+    }else{
+        delete dm;
+        event->accept();
     }
-    event->accept();
 }
 void AddEditDevice::on_buttonAddInterface_clicked()
 {
     int currentRowCount = interfaceModel->rowCount();
     int deviceId = -1;
-    if(m_editMode) deviceId = m_rec.value(dm->cIndex.id).toInt();
+    if(m_formMode == Enums::FormModes::Edit) deviceId = m_rec.value(dm->cIndex.id).toInt();
 
     AddEditNetworkInterface *aeni = new AddEditNetworkInterface(this, deviceId, interfaceModel);
     if(aeni->exec()){
@@ -1540,7 +1646,7 @@ void AddEditDevice::on_buttonAddInterface_clicked()
                 interfaceView->setCurrentIndex(interfaceModel->index(0,0));
         }
         interfaceIsChanged = true;
-        if(!m_editMode){
+        if(m_formMode != Enums::FormModes::Edit){
             if(formIsEmpty())
                 buttonCancel->setEnabled(false);
             else
@@ -1562,11 +1668,11 @@ void AddEditDevice::on_buttonAddInterface_clicked()
 void AddEditDevice::on_buttonChangeInterface_clicked()
 {
     int deviceId = -1;
-    if(m_editMode) deviceId = m_rec.value(dm->cIndex.id).toInt();
+    if(m_formMode == Enums::FormModes::Edit) deviceId = m_rec.value(dm->cIndex.id).toInt();
     AddEditNetworkInterface *aeni = new AddEditNetworkInterface(this, deviceId, interfaceModel, true,interfaceView->currentIndex());
     if(aeni->exec()){
         interfaceIsChanged = true;
-        if(!m_editMode){
+        if(m_formMode != Enums::FormModes::Edit){
             if(formIsEmpty())
                 buttonCancel->setEnabled(false);
             else
@@ -1631,7 +1737,7 @@ void AddEditDevice::on_buttonDelInterface_clicked()
         actionDelInterface->setEnabled(false);
     }
     interfaceIsChanged = true;
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(formIsEmpty())
             buttonCancel->setEnabled(false);
         else
@@ -1688,19 +1794,17 @@ void AddEditDevice::on_addNewLicenseButton_clicked()
     ael->setAttribute(Qt::WA_DeleteOnClose);
     ael->exec();
 }
-
 void AddEditDevice::on_changeLicenseButton_clicked()
 {
     QList<QVariant> licenseRowData;
     bool readOnly = false;
     QModelIndex curViewIndex = licenseView->currentIndex();
-    if(m_readOnly)
-        readOnly = m_readOnly;
+    if(m_formMode == Enums::FormModes::Read)
+        readOnly = true;
     else
     {
         if(lm->index(curViewIndex.row(),lm->cIndex.key).data().toInt() != 0)
         {
-            LockDataBase *lockedControl = new LockDataBase(this);
             if(!lockedControl->recordIsLosked(lm->data(lm->index(curViewIndex.row(),lm->cIndex.key)).toInt(),
                                               "`"+lm->colTabName.key+"`",
                                               lm->nameModelTable()))
@@ -1768,7 +1872,6 @@ void AddEditDevice::on_changeLicenseButton_clicked()
     ael->setAttribute(Qt::WA_DeleteOnClose);
     ael->exec();
 }
-
 void AddEditDevice::insertLicenseRow(const QList<QVariant> &licRow)
 {
     lm->insertRow(lm->rowCount());
@@ -1783,7 +1886,7 @@ void AddEditDevice::insertLicenseRow(const QList<QVariant> &licRow)
     deleteLicenseButton->setEnabled(true);
     actionEditLicense->setEnabled(true);
     actionDelLicense->setEnabled(true);
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(formIsEmpty())
             buttonCancel->setEnabled(false);
         else
@@ -1801,13 +1904,11 @@ void AddEditDevice::insertLicenseRow(const QList<QVariant> &licRow)
         }
     }
 }
-
 void AddEditDevice::updateLicenseCurrentRow(const QList<QVariant> &licRow)
 {
     QModelIndex curLicIndex = licenseView->currentIndex();
     lm->setRowData(curLicIndex,licRow);
 }
-
 void AddEditDevice::on_selectLicenseButton_clicked()
 {
     if(organization->currentIndex() <= 0){
@@ -1841,7 +1942,6 @@ void AddEditDevice::on_selectLicenseButton_clicked()
     connect(sl,SIGNAL(selectedLicense(QList<QVariant>)),this,SLOT(insertLicenseRow(QList<QVariant>)));
     sl->exec();
 }
-
 void AddEditDevice::on_deleteLicenseButton_clicked()
 {
     QModelIndex curViewIndex = licenseView->currentIndex();
@@ -1856,7 +1956,7 @@ void AddEditDevice::on_deleteLicenseButton_clicked()
         actionEditLicense->setEnabled(false);
         actionDelLicense->setEnabled(false);
     }
-    if(!m_editMode){
+    if(m_formMode != Enums::FormModes::Edit){
         if(formIsEmpty())
             buttonCancel->setEnabled(false);
         else
@@ -1874,22 +1974,18 @@ void AddEditDevice::on_deleteLicenseButton_clicked()
         }
     }
 }
-
 void AddEditDevice::on_actionAddNewLicense_triggered()
 {
     on_addNewLicenseButton_clicked();
 }
-
 void AddEditDevice::on_actionSelectlicense_triggered()
 {
     on_selectLicenseButton_clicked();
 }
-
 void AddEditDevice::on_actionEditLicense_triggered()
 {
     on_changeLicenseButton_clicked();
 }
-
 void AddEditDevice::on_actionDelLicense_triggered()
 {
     on_deleteLicenseButton_clicked();

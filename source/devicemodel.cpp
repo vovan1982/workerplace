@@ -2,15 +2,12 @@
 #include <QDir>
 #include "headers/devicemodel.h"
 #include "headers/treeitem.h"
-#include "headers/populatedevicethread.h"
-#include "headers/devicethreadworker.h"
+#include "headers/devicemodelworker.h"
 
-DeviceModel::DeviceModel(const QString &dbConnectionName, const QSqlDatabase &connectionData, QObject *parent, bool inThread, bool isEmpty):
+DeviceModel::DeviceModel(const QString &dbConnectionName, const QSqlDatabase &connectionData, QObject *parent, bool inThread):
     QAbstractItemModel(parent),
-    m_inThread(inThread),
-    m_isEmpty(isEmpty)
+    m_inThread(inThread)
 {
-    queueUpdate = false;
     filter = "";
     tabName = "device";
     aliasTable = "dev";
@@ -140,33 +137,17 @@ DeviceModel::DeviceModel(const QString &dbConnectionName, const QSqlDatabase &co
     cIndex.detailDescription = 28;
     colTabName.detailDescription = "DetailDescription";
     rootItemData = new TreeItem(rootData);
-    if(!isEmpty){
-        if(inThread){
-            m_populateDeviceThread = new PopulateDeviceThread(dbConnectionName,connectionData);
-            connect(m_populateDeviceThread,SIGNAL(result(TreeItem*)),this,SLOT(setNewTree(TreeItem*)));
-            connect(m_populateDeviceThread,SIGNAL(ready(bool)),this,SLOT(setReadyThread(bool)));
-            connect(m_populateDeviceThread,SIGNAL(lastErrors(QSqlError)),this,SLOT(setLastError(QSqlError)));
-            m_populateDeviceThread->start();
-        }else{
-            m_deviceThreadWorker = new DeviceThreadWorker(dbConnectionName,connectionData);
-            connect(m_deviceThreadWorker,SIGNAL(result(TreeItem*)),this,SLOT(setNewTree(TreeItem*)));
-            connect(m_deviceThreadWorker,SIGNAL(lastErrors(QSqlError)),this,SLOT(setLastError(QSqlError)));
-            select();
-        }
-    }
+    credentials["host"] = connectionData.hostName();
+    credentials["port"] = connectionData.port();
+    credentials["driver"] = connectionData.driverName();
+    credentials["login"] = connectionData.userName();
+    credentials["pass"] = connectionData.password();
+    credentials["databaseName"] = connectionData.databaseName();
+    credentials["connectionName"] = dbConnectionName;
 }
 
 DeviceModel::~DeviceModel(){
     delete rootItemData;
-    if(!m_isEmpty){
-        if(m_inThread){
-            m_populateDeviceThread->quit();
-            m_populateDeviceThread->wait();
-            m_populateDeviceThread->~PopulateDeviceThread();
-        }
-        else
-            m_deviceThreadWorker->~DeviceThreadWorker();
-    }
 }
 
 QModelIndex DeviceModel::index(int row, int column,
@@ -184,20 +165,6 @@ bool DeviceModel::hasChildren(const QModelIndex& parent) const {
     TreeItem *parentItem = itemDataFromIndex(parent);
     if (!parentItem) return false;
     else return (parentItem->childCount() > 0);
-//    {
-//        if(parent == QModelIndex())
-//            return (parentItem->childCount() > 0);
-//        QSqlQuery query;
-//        bool ok;
-//        ok = query.exec(QString("SELECT count(c.id) FROM %2 n, %3 t, %2 c WHERE "
-//                                "n.id = %1 AND n.id = t.parent_id AND t.id = c.id AND t.level > 0")
-//                        .arg(parentItem->data(cIndex.id).toInt())
-//                        .arg(tabName)
-//                        .arg(treeTable));
-//        if (!ok) {/*lastErr = query.lastError();*/ return false;}
-//        query.next();
-//        return (query.value(0).toInt() > 0);
-//    }
 }
 
 QModelIndex DeviceModel::parent(const QModelIndex& child) const {
@@ -306,7 +273,6 @@ void DeviceModel::setRootItemData(TreeItem *item){
         rootItemData = item;
         endResetModel();
     }
-    emit newTreeIsSet();
 }
 
 TreeItem* DeviceModel::itemDataFromIndex(const QModelIndex& index) const {
@@ -414,51 +380,49 @@ void DeviceModel::initEmpty()
 
 void DeviceModel::select()
 {
-    queueUpdate = true;
     QMap<QString,QString> forQuery;
-    QVector<QVariant> rootData;
     forQuery["primaryQuery"] = primaryQuery;
     forQuery["filter"] = filter;
     forQuery["tabName"] = tabName;
     forQuery["aliasTable"] = aliasTable;
     forQuery["columnId"] = QString("%1").arg(cIndex.id);
     forQuery["columnParent_Id"] = QString("%1").arg(cIndex.parent_id);
+
+    QVector<QVariant> rootData;
     for(int i=0; i<rootItemData->data().size(); i++)
         rootData << rootItemData->data(i);
-    if(m_inThread){
-        if(threadIsReady)
-            m_populateDeviceThread->selectData(forQuery,rootData);
-    }else{
-        m_deviceThreadWorker->createDeviceTree(forQuery,rootData);
-    }
 
+    DeviceModelWorker *worker = new DeviceModelWorker(credentials,forQuery,rootData);
+    connect(worker,&DeviceModelWorker::result,this,&DeviceModel::setNewTree);
+    connect(worker,&DeviceModelWorker::logData,this,&DeviceModel::logData);
+    connect(worker,&DeviceModelWorker::error,this,&DeviceModel::setError);
+
+    if(m_inThread){
+        QThread* thread = new QThread;
+        worker->moveToThread(thread);
+        connect(thread, SIGNAL(started()), worker, SLOT(process()));
+        connect(worker, SIGNAL(finished()), thread, SLOT(quit()));
+        connect(worker, SIGNAL(finished()), worker, SLOT(deleteLater()));
+        connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
+        thread->start();
+    }else{
+        worker->process();
+    }
+}
+
+void DeviceModel::clear()
+{
+    QVector<QVariant> rootDatas;
+    for(int i=0; i<rootItemData->data().size(); i++)
+        rootDatas << rootItemData->data(i);
+    setRootItemData(new TreeItem(rootDatas));
 }
 
 void DeviceModel::setNewTree(TreeItem* deviceTree)
 {
     setRootItemData(deviceTree);
+    emit newTreeIsSet();
 }
-
-void DeviceModel::setReadyThread(bool isReady)
-{
-    threadIsReady = isReady;
-    if(threadIsReady){
-        if(queueUpdate){
-            QMap<QString,QString> forQuery;
-            QVector<QVariant> rootData;
-            forQuery["primaryQuery"] = primaryQuery;
-            forQuery["filter"] = filter;
-            forQuery["tabName"] = tabName;
-            forQuery["aliasTable"] = aliasTable;
-            forQuery["columnId"] = QString("%1").arg(cIndex.id);
-            forQuery["columnParent_Id"] = QString("%1").arg(cIndex.parent_id);
-            for(int i=0; i<rootItemData->data().size(); i++)
-                rootData << rootItemData->data(i);
-            m_populateDeviceThread->selectData(forQuery,rootData);
-        }
-    }
-}
-
 bool DeviceModel::insertColumns(int position, int columns, const QModelIndex &parent)
 {
     bool success;
@@ -717,19 +681,6 @@ TreeItem* DeviceModel::search(TreeItem* note, int id)
     return note;
 }
 
-//TreeItem* DeviceModel::searchInRootNode(TreeItem* node, int id)
-//{
-//    int i = 0;
-//    TreeItem* childs;
-//    while(i < node->childCount()){
-//        childs = node->child(i);
-//        if(childs->data(cIndex.id).toInt() == id)
-//            return childs;
-//        i++;
-//    }
-//    return node;
-//}
-
 QModelIndex DeviceModel::findData(int idData)
 {
     TreeItem* item = search(rootItemData,idData);
@@ -738,85 +689,7 @@ QModelIndex DeviceModel::findData(int idData)
     else
         return indexFromItemData(item);
 }
-//TreeItem* DeviceModel::InitTree(){
-//    QSqlQuery query, minParentQuery;
-//    int minParent;
-//    TreeItem *all = 0;
-//    if(filter.isEmpty()){
-//        query.exec("BEGIN;");
-//        query.exec(QString("%1"
-//                           "ORDER BY "
-//                           "typedevice.Type DESC, parent_id; "
-//                           "COMMIT;").arg(primaryQuery));
-//        minParentQuery.exec(QString("SELECT MIN(parent_id) FROM %1").arg(tabName));
-//    }else{
-//        query.exec("BEGIN;");
-//        query.exec(QString("%1"
-//                           "WHERE %2 "
-//                           "ORDER BY "
-//                           "typedevice.Type DESC, parent_id; "
-//                           "COMMIT;").arg(primaryQuery).arg(filter));
-//        minParentQuery.exec(QString("SELECT MIN(parent_id) FROM %1 %3 WHERE %2").arg(tabName).arg(filter).arg(aliasTable));
-//    }
-//    if (query.lastError().type() != QSqlError::NoError){
-//        lastErr = query.lastError();
-//        return all;
-//    }
-//    if (minParentQuery.lastError().type() != QSqlError::NoError)
-//        qDebug()<<minParentQuery.lastError().text();
-//    TreeItem *note;
-//    QVector<QVariant> rootData;
-//    QList<QVariant> buffer;
-//    int f = 0, n = 0;
-//    for(int i=0; i<rootItemData->data().size(); i++)
-//        rootData << rootItemData->data(i);
-//    all = new TreeItem(rootData);
-//    if(query.size()>0){
-//        minParentQuery.next();
-//        minParent = minParentQuery.value(0).toInt();
-//        while(query.next())
-//        {
-//            if(query.value(cIndex.parent_id).toInt() == minParent){
-//                all->insertChildren(all->childCount(),1,all->columnCount());
-//                for(int i = 0;i<query.record().count();i++)
-//                    all->child(all->childCount()-1)->setData(i,query.value(i));
-//            }else{
-//                note = searchInRootNode(all, query.value(cIndex.parent_id).toInt());
-//                if(note != all){
-//                    note->insertChildren(note->childCount(),1,note->columnCount());
-//                    for(int i = 0;i<query.record().count();i++)
-//                        note->child(note->childCount()-1)->setData(i,query.value(i));
-//                }else{
-//                    for(int i = 0;i<query.record().count();i++)
-//                        buffer.append(query.value(i));
-//                }
-//            }
-//        }
 
-//        while(buffer.size()>0)
-//        {
-//            note = search(all, buffer.value(f+2).toInt());
-//            if(note != all){
-//                note->insertChildren(note->childCount(),1,note->columnCount());
-//                for(int i = 0;i<query.record().count();i++)
-//                    note->child(note->childCount()-1)->setData(i,buffer.takeAt(f));
-//                n = 0;
-//            }else{
-//                f = f+query.record().count();
-//                if(f>buffer.size()){
-//                    f = 0; n++;}
-//                if(n>2){
-//                    while(buffer.size()>0){
-//                        all->insertChildren(all->childCount(),1,all->columnCount());
-//                        for(int i = 0;i<query.record().count();i++)
-//                            all->child(all->childCount()-1)->setData(i,buffer.takeAt(f));
-//                    }
-//                }
-//            }
-//        }
-//    }
-//    return all;
-//}
 QSqlError DeviceModel::lastError()
 {
     return lastErr;
@@ -826,7 +699,11 @@ void DeviceModel::setLastError(const QSqlError &error)
 {
     lastErr = error;
 }
-
+void DeviceModel::setError(QString errorText)
+{
+    lastErr.setDatabaseText(errorText);
+    lastErr.setType(QSqlError::UnknownError);
+}
 QString DeviceModel::aliasModelTable()
 {
     return aliasTable;

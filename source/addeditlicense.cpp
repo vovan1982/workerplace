@@ -70,17 +70,8 @@ AddEditLicense::AddEditLicense(QWidget *parent, Enums::Modes mode, bool editMode
             price->setEnabled(false);
         }else{
             if(m_rec.value(licModel->cIndex.key).toInt() != 0){
-                timer = new QTimer(this);
-                LockDataBase *lockedControl = new LockDataBase(this);
-                if(!lockedControl->lockRecord(m_rec.value(licModel->cIndex.key).toInt(),"`"+licModel->colTabName.key+"`",licModel->nameModelTable())){
-                    QMessageBox::warning(this,tr("Ошибка!!!"),
-                                         tr("Не удалось заблокировать запись:\n %1\n")
-                                         .arg(lockedControl->lastError().text()),
-                                         tr("Закрыть"));
-                }else{
-                    connect(timer,SIGNAL(timeout()),this,SLOT(updateLockRecord()));
-                    timer->start(30000);
-                }
+                lockedControl = new LockDataBase(this);
+                lockedControl->lockRecordThread(m_rec.value(licModel->cIndex.key).toInt(),"`"+licModel->colTabName.key+"`",licModel->nameModelTable());
             }
         }
     }
@@ -949,34 +940,76 @@ void AddEditLicense::on_buttonSave_clicked()
                                  tr("Закрыть"));
     }
 }
-void AddEditLicense::updateLockRecord()
-{
-    LockDataBase *lockedControl = new LockDataBase(this);
-    if(!lockedControl->lockRecord(m_rec.value(licModel->cIndex.key).toInt(),"`"+licModel->colTabName.key+"`",licModel->nameModelTable())){
-        QMessageBox::warning(this,tr("Ошибка!!!"),
-                             tr("Не удалось продлить блокировку записи:\n %1\n")
-                             .arg(lockedControl->lastError().text()),
-                             tr("Закрыть"));
-        timer->stop();
-    }
-}
 void AddEditLicense::closeEvent(QCloseEvent *event){
     if(m_editMode){
         if(!m_readOnly){
-            if(m_rec.value(licModel->cIndex.key).toInt() != 0){
-                timer->stop();
-                delete timer;
-                LockDataBase *lockedControl = new LockDataBase(this);
-                if(!lockedControl->unlockRecord(m_rec.value(licModel->cIndex.key).toInt(),"`"+licModel->colTabName.key+"`",licModel->nameModelTable())){
-                    QMessageBox::warning(this,tr("Ошибка!!!"),
-                                         tr("Не удалось разблокировать запись:\n %1\n")
-                                         .arg(lockedControl->lastError().text()),
-                                         tr("Закрыть"));
+            int button;
+            if(dataChanged()){
+                button = QMessageBox::question(this, tr("Внимание"),
+                                               tr("Есть не сохранённые данные.\nХотите сохранить их?"),
+                                               tr("Да"),tr("Нет"),"",0,1);
+                if(button == 0){
+                    if(!dataIsEntered()){
+                        button = QMessageBox::question(this, tr("Внимание"),
+                                                 tr("Отсутствуют данные обязательные для заполнения.\nЗакрыть без сохранения?"),
+                                                 tr("Да"),tr("Нет"),"",1,1);
+                        if(button == 1)
+                            event->ignore();
+                        else{
+                            if(m_rec.value(licModel->cIndex.key).toInt() != 0){
+                                lockedControl->stopLockRecordThread(m_rec.value(licModel->cIndex.key).toInt());
+                                if(!lockedControl->unlockRecord(m_rec.value(licModel->cIndex.key).toInt(),"`"+licModel->colTabName.key+"`",licModel->nameModelTable())){
+                                    QMessageBox::warning(this,tr("Ошибка!!!"),
+                                                         tr("Не удалось разблокировать запись:\n %1\n")
+                                                         .arg(lockedControl->lastError().text()),
+                                                         tr("Закрыть"));
+                                }
+                            }
+                            event->accept();
+                        }
+                    }else{
+                        on_buttonSave_clicked();
+                        if(m_rec.value(licModel->cIndex.key).toInt() != 0){
+                            lockedControl->stopLockRecordThread(m_rec.value(licModel->cIndex.key).toInt());
+                            if(!lockedControl->unlockRecord(m_rec.value(licModel->cIndex.key).toInt(),"`"+licModel->colTabName.key+"`",licModel->nameModelTable())){
+                                QMessageBox::warning(this,tr("Ошибка!!!"),
+                                                     tr("Не удалось разблокировать запись:\n %1\n")
+                                                     .arg(lockedControl->lastError().text()),
+                                                     tr("Закрыть"));
+                            }
+                        }
+                        event->accept();
+                    }
+                }else{
+                    if(m_rec.value(licModel->cIndex.key).toInt() != 0){
+                        lockedControl->stopLockRecordThread(m_rec.value(licModel->cIndex.key).toInt());
+                        if(!lockedControl->unlockRecord(m_rec.value(licModel->cIndex.key).toInt(),"`"+licModel->colTabName.key+"`",licModel->nameModelTable())){
+                            QMessageBox::warning(this,tr("Ошибка!!!"),
+                                                 tr("Не удалось разблокировать запись:\n %1\n")
+                                                 .arg(lockedControl->lastError().text()),
+                                                 tr("Закрыть"));
+                        }
+                    }
+                    event->accept();
                 }
+            }else{
+                if(m_rec.value(licModel->cIndex.key).toInt() != 0){
+                    lockedControl->stopLockRecordThread(m_rec.value(licModel->cIndex.key).toInt());
+                    if(!lockedControl->unlockRecord(m_rec.value(licModel->cIndex.key).toInt(),"`"+licModel->colTabName.key+"`",licModel->nameModelTable())){
+                        QMessageBox::warning(this,tr("Ошибка!!!"),
+                                             tr("Не удалось разблокировать запись:\n %1\n")
+                                             .arg(lockedControl->lastError().text()),
+                                             tr("Закрыть"));
+                    }
+                }
+                event->accept();
             }
+        }else{
+            event->accept();
         }
+    }else{
+        event->accept();
     }
-    event->accept();
 }
 void AddEditLicense::changeEvent(QEvent *e)
 {

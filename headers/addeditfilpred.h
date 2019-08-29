@@ -4,6 +4,8 @@
 #include <QtSql>
 #include "ui_addeditfilpred.h"
 
+class LockDataBase;
+
 class AddEditFilPred : public QDialog, private Ui::AddEditFilPred {
     Q_OBJECT
 public:
@@ -14,7 +16,7 @@ private:
     bool m_editMode;
     int m_editId;
     bool m_readOnly;
-    QTimer* timer;
+    LockDataBase *lockedControl;
 protected:
     void changeEvent(QEvent *e);
     void closeEvent(QCloseEvent *event);
@@ -25,7 +27,6 @@ private slots:
     void on_saveButton_clicked();
     void on_filpredName_textEdited(QString );
     void on_cancelButton_clicked();
-    void updateLockRecord();
 };
 
 #endif // ADDEDITFILPRED_H

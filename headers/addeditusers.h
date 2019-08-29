@@ -3,6 +3,8 @@
 
 #include "ui_addeditusers.h"
 
+class LockDataBase;
+
 class AddEditUsers : public QDialog, private Ui::AddEditUsers
 {
     Q_OBJECT
@@ -13,7 +15,7 @@ private:
     bool m_wpMode;
     QMap<QString,QVariant> m_data;
     bool m_editMode;
-    QTimer* timer;
+    LockDataBase *lockedControl;
     bool dataEntered();
     bool formIsEmpty();
     bool dataChanged();
@@ -39,7 +41,6 @@ private slots:
     void on_buttonRevert_clicked();
     void on_buttonEditPost_clicked();
     void on_buttonPopulateFio_clicked();
-    void updateLockRecord();
     void on_note_textChanged(const QString &);
 
 protected:

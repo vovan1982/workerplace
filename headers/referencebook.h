@@ -8,6 +8,8 @@
 #include <QHeaderView>
 #include "ui_referencebook.h"
 
+class LockDataBase;
+
 class CReferenceView : public QTableView {
     Q_OBJECT
 public:
@@ -27,7 +29,7 @@ private:
     QSqlRelationalTableModel *model;
     QSqlRelationalTableModel *model2;
     CReferenceView *tableReference;
-    QTimer* timer;
+    LockDataBase *lockedControl;
     void updateTable(QString tableName);
     void activeButton(bool act);
     void changeButton(bool ch);
@@ -41,7 +43,6 @@ private slots:
     void on_delButton_clicked();
     void on_submitButton_clicked();
     void on_revertButton_clicked();
-    void updateLockReferenceBook();
 protected:
     virtual void changeEvent(QEvent *e);
     void closeEvent(QCloseEvent *event);

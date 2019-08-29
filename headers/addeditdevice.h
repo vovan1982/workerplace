@@ -5,32 +5,33 @@
 #include <QSqlDatabase>
 #include <QSqlTableModel>
 #include "ui_addeditdevice.h"
+#include "headers/enums.h"
 
 class DeviceModel;
 class LicenseTableModel;
+class LockDataBase;
 
 class AddEditDevice : public QDialog, private Ui::AddEditDevice {
     Q_OBJECT
 public:
-    AddEditDevice(QWidget *parent = 0, int type = 1, int parent_id = 0, int workPlaceId = 0, const QString &workPlaceName = "",
-                  bool compositionMode = false, bool editMode = false, const QList<QVariant> &rec = QList<QVariant>(),
-                  bool wpMode = false, int firmId = 0, bool readOnly = false);
+    AddEditDevice(QWidget *parent = 0, int type = 1, int parent_id = 0, Enums::FormModes formMode = Enums::FormModes::Add,
+                  const QList<QVariant> &rec = QList<QVariant>(), int workPlaceId = 0, const QString &workPlaceName = "",
+                  Enums::Modes mode = Enums::Standart,int firmId = 0);
 private:
     QSqlDatabase db;
-    int m_type, m_parent_id, m_workPlaceId;
-    QString m_workPlaceName;
-    bool m_compositionMode,m_editMode;
+    int m_type, m_parent_id;
+    Enums::FormModes m_formMode;
     QList<QVariant> m_rec;
-    bool m_wpMode;
-    int m_firmId;
-    bool m_readOnly;
-    QTimer* timer;
+    int  m_workPlaceId;
+    QString m_workPlaceName;
+    Enums::Modes m_mode;
     DeviceModel *dm;
     QWidget *networkTab, *licenseTab;
     QSqlTableModel *interfaceModel;
     LicenseTableModel *lm;
     bool interfaceIsChanged, licenseIsChanged;
     QList<QVariant> licenseIdToUntie;
+    LockDataBase *lockedControl;
     void clearForm();
     bool dataEntered();
     bool formIsEmpty();
@@ -46,14 +47,11 @@ protected:
     void changeEvent(QEvent *e);
     void closeEvent(QCloseEvent *event);
 signals:
-    void deviceAdded();
-    void deviceAdded(int newId);
     void deviceAdded(int newId, int parentId);
     void deviceDataChanged();
 private slots:
     void setWorkPlase(int wpId, const QString &wpName);
     void setOrgTex(const QList<QVariant> &orgTexData);
-    void updateLockRecord();
     void onInterfaceMenu(const QPoint &p);
     void onLicenseMenu(const QPoint &p);
     void insertLicenseRow(const QList<QVariant> &licRow);

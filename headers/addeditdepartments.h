@@ -3,6 +3,8 @@
 
 #include "ui_addeditdepartments.h"
 
+class LockDataBase;
+
 class AddEditDepartments : public QDialog, private Ui::AddEditDepartments {
     Q_OBJECT
 public:
@@ -13,7 +15,7 @@ private:
     QString m_name, m_tabName;
     int m_editId;
     bool m_readOnly;
-    QTimer* timer;
+    LockDataBase *lockedControl;
 protected:
     void changeEvent(QEvent *e);
     void closeEvent(QCloseEvent *event);
@@ -23,7 +25,6 @@ private slots:
     void on_addButton_clicked();
     void on_newDepartment_textChanged(QString );
     void on_cancelButton_clicked();
-    void updateLockRecord();
 };
 
 #endif // ADDEDITDEPARTMENTS_H

@@ -4,14 +4,12 @@
 #include <QtSql>
 
 class TreeItem;
-class PopulateDeviceThread;
-class DeviceThreadWorker;
 
 class DeviceModel : public QAbstractItemModel
 {
     Q_OBJECT
 public:
-    DeviceModel(const QString &dbConnectionName = "default", const QSqlDatabase &connectionData = QSqlDatabase(), QObject *parent = 0, bool inThread = true, bool isEmpty = false);
+    DeviceModel(const QString &dbConnectionName = "default", const QSqlDatabase &connectionData = QSqlDatabase(), QObject *parent = 0, bool inThread = true);
     ~DeviceModel();
     QModelIndex index(int row, int column, const QModelIndex& parent = QModelIndex()) const;
     bool hasChildren(const QModelIndex& parent = QModelIndex()) const;
@@ -38,6 +36,7 @@ public:
     bool removeColumns(int position, int columns, const QModelIndex &parent = QModelIndex());
     void setFilter(const QString& filters);
     void select();
+    void clear();
     void initEmpty();
     QModelIndex moveItem(int movedId, int newParentId);
     void copyItem(const QModelIndex& indexFrom, const QModelIndex& indexTo, int position);
@@ -102,25 +101,23 @@ public:
     } colTabName;
 
 private:
-//    TreeItem* InitTree();
+    QMap<QString,QVariant> credentials;
     TreeItem* search(TreeItem* , int);
-//    TreeItem* searchInRootNode(TreeItem* , int);
     TreeItem *itemDataFromIndex(const QModelIndex& index) const;
     QModelIndex indexFromItemData(TreeItem*);
     TreeItem *rootItemData;
     bool queryDelItem(TreeItem*);
     QString tabName,treeTable,aliasTable,filter,primaryQuery;
     QSqlError lastErr;
-    PopulateDeviceThread *m_populateDeviceThread;
-    bool threadIsReady, queueUpdate, m_inThread, m_isEmpty;
-    DeviceThreadWorker* m_deviceThreadWorker;
+    bool m_inThread;
 signals:
     void newTreeIsSet();
+    void logData(QString text);
 public slots:
     void setNewTree(TreeItem* deviceTree);
 private slots:
-    void setReadyThread(bool isReady);
     void setLastError(const QSqlError &error);
+    void setError(QString errorText);
 };
 
 #endif // DEVICEMODEL_H

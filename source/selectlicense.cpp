@@ -1,7 +1,8 @@
 #include <QMessageBox>
-#include "headers/selectlicense.h"
 #include "headers/licensemodel.h"
+#include "headers/selectlicense.h"
 #include "headers/filterlicense.h"
+#include "headers/loadindicator.h"
 #include "headers/licensemodelcontrol.h"
 
 SelectLicense::SelectLicense(QWidget *parent, const QString &filter, bool multiselections, QMap<int,QString> organizations, int curOrgId) :
@@ -12,25 +13,33 @@ SelectLicense::SelectLicense(QWidget *parent, const QString &filter, bool multis
     m_curOrgId(curOrgId)
 {
     setupUi(this);
+    dontShowLoadindicator = false;
     filterIsSet = false;
     lockSelected = false;
     selectedFilter = "";
     licenseFilter = curFilter = filter;
 
-    lModel = new LicenseModelControl(licenseView,licenseView,showParentDevice->isChecked(),licenseFilter);
+    li = new LoadIndicator(licenseView,tr("Подождите идёт загрузка..."));
+    lModel = new LicenseModelControl(licenseView,licenseView,showParentDevice->isChecked(),licenseFilter,true);
 
+    connect(lModel,SIGNAL(dataIsPopulated()),this,SLOT(dataIsLoaded()));
     connect(licenseView->selectionModel(), SIGNAL(currentRowChanged(QModelIndex,QModelIndex)),
             this, SLOT(setAccessToActions(QModelIndex)));
     connect(licenseView,SIGNAL(doubleClicked(QModelIndex)),this,SLOT(on_selectButton_clicked()));
-    if(lModel->model()->rowCount() == 0){
-        selectButton->setEnabled(false);
-        setFilterButton->setEnabled(false);
-        clearFilterButton->setEnabled(false);
-        showParentDevice->setEnabled(false);
-    }else
-        lModel->setCurrentIndexFirstRow();
 }
-
+void SelectLicense::showEvent(QShowEvent *e)
+{
+    QDialog::showEvent( e );
+    if(!dontShowLoadindicator){
+        dontShowLoadindicator = true;
+        showLoadIndicator();
+    }
+}
+void SelectLicense::resizeEvent(QResizeEvent *event)
+{
+    QDialog::resizeEvent(event);
+    li->updatePosition();
+}
 void SelectLicense::changeEvent(QEvent *e)
 {
     QDialog::changeEvent(e);
@@ -42,19 +51,41 @@ void SelectLicense::changeEvent(QEvent *e)
         break;
     }
 }
-
+void SelectLicense::dataIsLoaded()
+{
+    li->stop();
+    if(lModel->model()->lastError().type() == QSqlError::NoError){
+        if(lModel->model()->rowCount() == 0)
+            setAccessToActions();
+        else{
+            showParentDevice->setEnabled(true);
+            setAccessToActions(licenseView->currentIndex());
+        }
+        if(showParentDevice->isChecked())
+            licenseView->collapseAll();
+    }else{
+        QMessageBox::warning(this, tr("Ошибка"),
+                                 tr("Ошибка получения данных:\n %1").arg(lModel->model()->lastError().text()),
+                                 tr("Закрыть"));
+    }
+}
+void SelectLicense::showLoadIndicator()
+{
+    selectButton->setEnabled(false);
+    setFilterButton->setEnabled(false);
+    clearFilterButton->setEnabled(false);
+    showParentDevice->setEnabled(false);
+    li->start();
+}
 void SelectLicense::updateLicenseModel()
 {
+    showLoadIndicator();
     lModel->updateLicModel();
-    if(lModel->model()->rowCount() > 0)
-        lModel->setCurrentIndexFirstRow();
-    setAccessToActions(licenseView->currentIndex());
-    if(showParentDevice->isChecked())
-        licenseView->collapseAll();
 }
 
 void SelectLicense::on_showParentDevice_clicked(bool checked)
 {
+    showLoadIndicator();
     lModel->setShowParentDevice(checked);
     lModel->setLicFilterWhithOutUpdate(licenseFilter);
     updateLicenseModel();

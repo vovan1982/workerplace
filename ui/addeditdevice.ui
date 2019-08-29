@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>590</width>
-    <height>494</height>
+    <height>516</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -962,6 +962,20 @@ p, li { white-space: pre-wrap; }
        </item>
       </layout>
      </widget>
+    </widget>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="doNotClearForm">
+     <property name="font">
+      <font>
+       <pointsize>10</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="text">
+      <string>Не очищать форму после сохранения</string>
+     </property>
     </widget>
    </item>
    <item>

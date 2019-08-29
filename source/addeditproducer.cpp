@@ -16,17 +16,8 @@ AddEditProducer::AddEditProducer(QWidget *parent, bool editMode, QSqlRecord rec,
             www->setReadOnly(true);
             note->setReadOnly(true);
         }else{
-            timer = new QTimer(this);
-            LockDataBase *lockedControl = new LockDataBase(this);
-            if(!lockedControl->lockRecord(m_rec.value(0).toInt(),"CodProducer","producer")){
-                QMessageBox::warning(this,tr("Ошибка!!!"),
-                                     tr("Не удалось заблокировать запись:\n %1\n")
-                                     .arg(lockedControl->lastError().text()),
-                                     tr("Закрыть"));
-            }else{
-                connect(timer,SIGNAL(timeout()),this,SLOT(updateLockRecord()));
-                timer->start(30000);
-            }
+            lockedControl = new LockDataBase(this);
+            lockedControl->lockRecordThread(m_rec.value(0).toInt(),"CodProducer","producer");
         }
     }
 }
@@ -182,17 +173,6 @@ void AddEditProducer::on_saveButton_clicked()
     }
     emit producerAdded();
 }
-void AddEditProducer::updateLockRecord()
-{
-    LockDataBase *lockedControl = new LockDataBase(this);
-    if(!lockedControl->lockRecord(m_rec.value(0).toInt(),"CodProducer","producer")){
-        QMessageBox::warning(this,tr("Ошибка!!!"),
-                             tr("Не удалось продлить блокировку записи:\n %1\n")
-                             .arg(lockedControl->lastError().text()),
-                             tr("Закрыть"));
-        timer->stop();
-    }
-}
 void AddEditProducer::changeEvent(QEvent *e)
 {
     QDialog::changeEvent(e);
@@ -207,16 +187,62 @@ void AddEditProducer::changeEvent(QEvent *e)
 void AddEditProducer::closeEvent(QCloseEvent *event){
     if(m_editMode){
         if(!m_readOnly){
-            timer->stop();
-            delete timer;
-            LockDataBase *lockedControl = new LockDataBase(this);
-            if(!lockedControl->unlockRecord(m_rec.value(0).toInt(),"CodProducer","producer")){
-                QMessageBox::warning(this,tr("Ошибка!!!"),
-                                     tr("Не удалось разблокировать запись:\n %1\n")
-                                     .arg(lockedControl->lastError().text()),
-                                     tr("Закрыть"));
+            int button;
+            if(dataChanged()){
+                button = QMessageBox::question(this, tr("Внимание"),
+                                         tr("Есть не сохранённые данные.\nХотите сохранить их?"),
+                                         tr("Да"),tr("Нет"),"",0,1);
+                if(button == 0){
+                    if(name->text().isNull() || name->text().isEmpty())
+                    {
+                        button = QMessageBox::question(this, tr("Внимание"),
+                                                 tr("Отсутствуют данные обязательные для заполнения.\nЗакрыть без сохранения?"),
+                                                 tr("Да"),tr("Нет"),"",1,1);
+                        if(button == 1)
+                            event->ignore();
+                        else{
+                            lockedControl->stopLockRecordThread(m_rec.value(0).toInt());
+                            if(!lockedControl->unlockRecord(m_rec.value(0).toInt(),"CodProducer","producer")){
+                                QMessageBox::warning(this,tr("Ошибка!!!"),
+                                                     tr("Не удалось разблокировать запись:\n %1\n")
+                                                     .arg(lockedControl->lastError().text()),
+                                                     tr("Закрыть"));
+                            }
+                            event->accept();
+                        }
+                    }else{
+                        on_saveButton_clicked();
+                        lockedControl->stopLockRecordThread(m_rec.value(0).toInt());
+                        if(!lockedControl->unlockRecord(m_rec.value(0).toInt(),"CodProducer","producer")){
+                            QMessageBox::warning(this,tr("Ошибка!!!"),
+                                                 tr("Не удалось разблокировать запись:\n %1\n")
+                                                 .arg(lockedControl->lastError().text()),
+                                                 tr("Закрыть"));
+                        }
+                        event->accept();
+                    }
+                }else{
+                    lockedControl->stopLockRecordThread(m_rec.value(0).toInt());
+                    if(!lockedControl->unlockRecord(m_rec.value(0).toInt(),"CodProducer","producer")){
+                        QMessageBox::warning(this,tr("Ошибка!!!"),
+                                             tr("Не удалось разблокировать запись:\n %1\n")
+                                             .arg(lockedControl->lastError().text()),
+                                             tr("Закрыть"));
+                    }
+                    event->accept();
+                }
+            }else{
+                lockedControl->stopLockRecordThread(m_rec.value(0).toInt());
+                if(!lockedControl->unlockRecord(m_rec.value(0).toInt(),"CodProducer","producer")){
+                    QMessageBox::warning(this,tr("Ошибка!!!"),
+                                         tr("Не удалось разблокировать запись:\n %1\n")
+                                         .arg(lockedControl->lastError().text()),
+                                         tr("Закрыть"));
+                }
+                event->accept();
             }
-        }
-    }
-    event->accept();
+        }else
+            event->accept();
+    }else
+        event->accept();
 }

@@ -336,6 +336,7 @@ void Cusers::populateToUnitModel(int filter)
 
 void Cusers::setUserFilter()
 {
+    QModelIndex curViewIndex = users->currentIndex();
     if(post->currentIndex() > 0 && organization->currentIndex() <= 0){
         populateModel(post->itemData(post->currentIndex()).toInt(), -1);
     }else if(post->currentIndex() <= 0 && organization->currentIndex() > 0){
@@ -350,7 +351,10 @@ void Cusers::setUserFilter()
         userModelEmpty(false);
     }else{
         userModelEmpty(true);
-        users->setCurrentIndex(proxyModel->index(0,5));
+        if(curViewIndex.isValid())
+            users->setCurrentIndex(proxyModel->index(curViewIndex.row(),5));
+        else
+            users->setCurrentIndex(proxyModel->index(0,5));
     }
 }
 
@@ -607,6 +611,7 @@ void Cusers::on_buttonEdit_clicked()
     AddEditUsers *editUser = new AddEditUsers(this,m_wpMode,data,true);
     editUser->setWindowTitle(tr("Редактирование пользователя"));
     connect(editUser,SIGNAL(userDataChanged()),this,SLOT(setUserFilter()));
+    editUser->setAttribute(Qt::WA_DeleteOnClose);
     editUser->exec();
 }
 
@@ -617,6 +622,7 @@ void Cusers::on_buttonAddLoginPass_clicked()
     data["userId"] = model->data(model->index(realModelIndex(users->currentIndex()).row(),0)).toInt();
     AddEditLoginPass *addLogin = new AddEditLoginPass(this,data);
     connect(addLogin,SIGNAL(loginAdded()),this,SLOT(loginPass()));
+    addLogin->setAttribute(Qt::WA_DeleteOnClose);
     addLogin->exec();
 }
 
@@ -647,6 +653,7 @@ void Cusers::on_buttonDelLoginPass_clicked()
 
 void Cusers::on_buttonEditLoginPass_clicked()
 {
+    if(isLockedOrChanged()) return;
     QSqlQuery query;
     QMap<QString,QVariant> data;
     data["userName"] = model->data(model->index(realModelIndex(users->currentIndex()).row(),5)).toString();
@@ -674,7 +681,8 @@ void Cusers::on_buttonEditLoginPass_clicked()
     }
     AddEditLoginPass *editLogin = new AddEditLoginPass(this,data,true,isLockedOrChanged());
     editLogin->setWindowTitle(tr("Редактирование логина и пароля"));
-    connect(editLogin,SIGNAL(loginDataChanged()),this,SLOT(loginPass()));
+    connect(editLogin,SIGNAL(loginDataChanged()),this,SLOT(setUserFilter()));
+    editLogin->setAttribute(Qt::WA_DeleteOnClose);
     editLogin->exec();
 }
 
@@ -685,6 +693,7 @@ void Cusers::on_buttonAddNumber_clicked()
     data["userId"] = model->data(model->index(realModelIndex(users->currentIndex()).row(),0)).toInt();
     AddEditNumber *addNumber = new AddEditNumber(this,data);
     connect(addNumber,SIGNAL(numberAdded()),this,SLOT(numberViewUpdate()));
+    addNumber->setAttribute(Qt::WA_DeleteOnClose);
     addNumber->exec();
 }
 
@@ -715,6 +724,7 @@ void Cusers::on_buttonDelNumber_clicked()
 
 void Cusers::on_buttonEditNumber_clicked()
 {
+    if(isLockedOrChanged()) return;
     QSqlQuery query;
     QMap<QString,QVariant> data;
     data["userName"] = model->data(model->index(realModelIndex(users->currentIndex()).row(),5)).toString();
@@ -741,7 +751,8 @@ void Cusers::on_buttonEditNumber_clicked()
     }
     AddEditNumber *addNumber = new AddEditNumber(this,data,true,isLockedOrChanged());
     addNumber->setWindowTitle(tr("Редактирование номера"));
-    connect(addNumber,SIGNAL(numberDataChanged()),this,SLOT(numberViewUpdate()));
+    connect(addNumber,SIGNAL(numberDataChanged()),this,SLOT(setUserFilter()));
+    addNumber->setAttribute(Qt::WA_DeleteOnClose);
     addNumber->exec();
 }
 
@@ -1034,6 +1045,7 @@ void Cusers::on_addWPButton_clicked()
                                                         modelFilPredDep,
                                                         model->data(model->index(realModelIndex(users->currentIndex()).row(),0)).toInt());
     connect(awou,SIGNAL(addWorkPlace()),this,SLOT(wpViewUpdate()));
+    awou->setAttribute(Qt::WA_DeleteOnClose);
     awou->exec();
 }
 void Cusers::on_delWPButton_clicked()
@@ -1041,6 +1053,7 @@ void Cusers::on_delWPButton_clicked()
     dateOut = "";
     DelUserWithWp *duww = new DelUserWithWp(this);
     connect(duww,SIGNAL(userDateOut(QString)),this,SLOT(setDateOut(QString)));
+    duww->setAttribute(Qt::WA_DeleteOnClose);
     if(!duww->exec())
         return;
     QSqlQuery query;
@@ -1103,6 +1116,7 @@ void Cusers::on_addButton_clicked()
         userModelId<<model->record(i).value(0).toInt();
     AddExistingUser *aeu = new AddExistingUser(this,m_firmId,m_wpId,userModelId);
     connect(aeu,SIGNAL(userAdded()),this,SLOT(setUserFilter()));
+    aeu->setAttribute(Qt::WA_DeleteOnClose);
     aeu->exec();
 }
 

@@ -19,9 +19,7 @@ MoveDevice::MoveDevice(QWidget *parent, bool singlMode, const QList<QVariant> &c
         m_moveFromWp(moveFromWp){
     setupUi(this);
     lockedControl = new LockDataBase(this);
-    timer = new QTimer(this);
-    connect(timer,SIGNAL(timeout()),this,SLOT(updateLockRecord()));
-    timer->start(30000);
+    lockedControlLicense = new LockDataBase(this);
     curOrgId = 0; curFilPredId = 0; curDepId = 0; curWPId = 0;
     newOrgId = 0; newFilPredId = 0; newDepId = 0; newWPId = 0;
     newOrgTex->setData(0); typeDevForMove = 0;
@@ -309,7 +307,6 @@ void MoveDevice::addDevForMove(const QList<QVariant> &dev)
                     .arg(devModel->nameModelTreeTable())
                     .arg(dev.value(devModel->cIndex.id).toInt()));
     if(!ok){
-        timer->stop();
         if(!m_singlMode)
             emit lockedError(tr("Не удалось получить список устройств для блокировки:\n %1\n").arg(query.lastError().text()),false);
         else
@@ -324,9 +321,9 @@ void MoveDevice::addDevForMove(const QList<QVariant> &dev)
 
     if(!lockedControl->recordsIsLosked(lockedId,
                                        devModel->colTabName.id,
-                                       devModel->nameModelTable())){
+                                       devModel->nameModelTable()))
+    {
         if(lockedControl->lastError().type() != QSqlError::NoError){
-            timer->stop();
             if(!m_singlMode)
                 emit lockedError(tr("Не удалось получить информацию о блокировке:\n %1\n").arg(lockedControl->lastError().text()),false);
             else
@@ -393,7 +390,6 @@ void MoveDevice::addDevForMove(const QList<QVariant> &dev)
             if(!lockedControl->lockListRecord(lockedId,
                                               devModel->colTabName.id,
                                               devModel->nameModelTable())){
-                timer->stop();
                 if(!m_singlMode)
                     emit lockedError(tr("Не удалось заблокировать выбраное устройство:\n %1\n").arg(lockedControl->lastError().text()),false);
                 else
@@ -442,6 +438,7 @@ void MoveDevice::addDevForMove(const QList<QVariant> &dev)
         newOrgTex->setEnabled(false);
         selectCur->setEnabled(false);
     }
+    updateLockRecord();
 }
 void MoveDevice::on_cancel_clicked()
 {
@@ -478,6 +475,7 @@ void MoveDevice::on_cancel_clicked()
     QList<int> lockedId;
     while(query.next())
         lockedId<<query.value(0).toInt();
+    lockedControl->stopLockListRecordThread();
     if(!lockedControl->unlockListRecord(lockedId,
                                       devModel->colTabName.id,
                                       devModel->nameModelTable())){
@@ -516,6 +514,7 @@ void MoveDevice::on_delDeviceForMove_clicked()
     QList<int> lockedId;
     while(query.next())
         lockedId<<query.value(0).toInt();
+    lockedControl->stopLockListRecordThread();
     if(!lockedControl->unlockListRecord(lockedId,
                                       devModel->colTabName.id,
                                       devModel->nameModelTable()))
@@ -523,6 +522,7 @@ void MoveDevice::on_delDeviceForMove_clicked()
                              tr("Не удалось разблокировать запись:\n %1\n")
                              .arg(lockedControl->lastError().text()),
                              tr("Закрыть"));
+    updateLockRecord();
 }
 void MoveDevice::on_moveDev_clicked()
 {
@@ -539,7 +539,6 @@ void MoveDevice::on_moveDev_clicked()
     QSqlQuery query, addHistoryQuery;
     QString devForMove = "(";
     bool ok;
-    licenseTimer = new QTimer(this);
 
     devForMove += moveDevModel->data(moveDevModel->index(0,devModel->cIndex.id)).toString();
     for(int i = 1; i < moveDevModel->rowCount(); i++)
@@ -565,34 +564,33 @@ void MoveDevice::on_moveDev_clicked()
                 if(query.size() > 0){
                     while(query.next())
                         lockedLicenseId<<query.value(0).toInt();
-                    if(lockedControl->recordsIsLosked(lockedLicenseId,"`key`","licenses")){
+                    if(lockedControlLicense->recordsIsLosked(lockedLicenseId,"`key`","licenses")){
                         for(int i = 0; i<lockedLicenseId.size();i++){
-                            if(lockedControl->recordIsLosked(lockedLicenseId.value(i),"`key`","licenses")){
+                            if(lockedControlLicense->recordIsLosked(lockedLicenseId.value(i),"`key`","licenses")){
                                 int button = QMessageBox::question(this,tr("Ошибка!!!"),
                                                                    tr("Как минимум одна лицензия заблокирована.\n"
                                                                       "Пользователь выполнивший блокировку: %1.\n\n"
                                                                       "Перемещение лицензий не возможно, вы хотите продолжить "
                                                                       "перемещение устройств без лицензий?")
-                                                                   .arg(lockedControl->recordBlockingUser()),
+                                                                   .arg(lockedControlLicense->recordBlockingUser()),
                                                                    tr("Да"),tr("Нет"),"",1,1);
                                 if(button == 1)
                                     return;
                             }
                         }
                     }else{
-                        if(!lockedControl->lockListRecord(lockedLicenseId,"`key`","licenses")){
+                        if(!lockedControlLicense->lockListRecord(lockedLicenseId,"`key`","licenses")){
                             int button = QMessageBox::question(this,tr("Ошибка!!!"),
                                                                tr("Не удалось заблокировать записи перемещаемых лицензий:\n %1\n\n"
                                                                   "Перемещение лицензий не возможно, вы хотите продолжить "
                                                                   "перемещение устройств без лицензий?")
-                                                               .arg(lockedControl->lastError().text()),
+                                                               .arg(lockedControlLicense->lastError().text()),
                                                                tr("Да"),tr("Нет"),"",1,1);
                             if(button == 1)
                                 return;
                         }else{
                             moveLicenseToNewOrg = true;
-                            connect(licenseTimer,SIGNAL(timeout()),this,SLOT(updateLockLicenseRecord()));
-                            licenseTimer->start(30000);
+                            lockedControlLicense->lockListRecordThread(lockedLicenseId,"`key`","licenses");
                         }
                     }
                 }
@@ -685,7 +683,6 @@ void MoveDevice::on_moveDev_clicked()
                                  tr("Не удалось внести изменения в базу данных:\n%1")
                                  .arg(query.lastError().text()),
                                  tr("Закрыть"));
-            qDebug()<<query.lastQuery()<<"№8";
             return;
         }
         // Если была выбранна другая организация, изменяем организацию у устройств и привязанных к ним лицензий
@@ -705,7 +702,6 @@ void MoveDevice::on_moveDev_clicked()
                                      tr("Не удалось внести изменения в базу данных:\n%1")
                                      .arg(query.lastError().text()),
                                      tr("Закрыть"));
-                qDebug()<<query.lastQuery()<<"№10";
                 return;
             }
             // Если был получен положительный ответ на вопрос о перемещении лицензий
@@ -757,7 +753,12 @@ void MoveDevice::on_moveDev_clicked()
                         }
                     }
                 }
-                licenseTimer->stop();
+                lockedControlLicense->stopLockListRecordThread();
+                if(!lockedControlLicense->unlockListRecord(lockedLicenseId,"`key`","licenses"))
+                    QMessageBox::warning(this,tr("Ошибка!!!"),
+                                         tr("Не удалось разблокировать запись:\n %1\n")
+                                         .arg(lockedControlLicense->lastError().text()),
+                                         tr("Закрыть"));
                 lockedLicenseId.clear();
             }else{
                 // Если от перемещения лицензий отказались
@@ -987,36 +988,19 @@ void MoveDevice::updateLockRecord()
                     .arg(devModel->nameModelTreeTable())
                     .arg(listId));
     if(!ok){
-        timer->stop();
+        lockedControl->stopLockListRecordThread();
         QMessageBox::warning(this,tr("Ошибка!!!"),
                              tr("Не удалось продлить блокировку:\n %1\n")
                              .arg(query.lastError().text()),
                              tr("Закрыть"));
+        return;
     }
 
     QList<int> lockedId;
     while(query.next())
         lockedId<<query.value(0).toInt();
-    if(!lockedControl->lockListRecord(lockedId,
-                                      devModel->colTabName.id,
-                                      devModel->nameModelTable())){
-        timer->stop();
-        QMessageBox::warning(this,tr("Ошибка!!!"),
-                             tr("Не удалось продлить блокировку:\n %1\n")
-                             .arg(lockedControl->lastError().text()),
-                             tr("Закрыть"));
-    }
-}
-void MoveDevice::updateLockLicenseRecord()
-{
-    if(!lockedControl->lockListRecord(lockedLicenseId,"`key`","licenses")){
-        licenseTimer->stop();
-        lockedLicenseId.clear();
-        QMessageBox::warning(this,tr("Ошибка!!!"),
-                             tr("Не удалось продлить блокировку записей перемещаемых лицензий:\n %1\n")
-                             .arg(lockedControl->lastError().text()),
-                             tr("Закрыть"));
-    }
+    lockedControl->stopLockListRecordThread();
+    lockedControl->lockListRecordThread(lockedId,devModel->colTabName.id,devModel->nameModelTable());
 }
 void MoveDevice::on_closeButton_clicked()
 {

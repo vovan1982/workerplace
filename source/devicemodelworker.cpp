@@ -1,31 +1,31 @@
-#include <QSqlQuery>
 #include "headers/treeitem.h"
-#include "headers/devicethreadworker.h"
+#include "headers/devicemodelworker.h"
 
-DeviceThreadWorker::DeviceThreadWorker(const QString &dbConnectionName, const QSqlDatabase &connectionData, QObject *parent) :
-    QObject(parent), m_dbConnectionName(dbConnectionName)
+DeviceModelWorker::DeviceModelWorker(const QMap<QString, QVariant> &credentials,
+                                     const QMap<QString, QString> &forQuery,
+                                     const QVector<QVariant> &rootData) :
+    m_credentials(credentials),
+    m_rootData(rootData)
 {
-
-    if(QSqlDatabase::connectionNames().contains(dbConnectionName+"_thread")){
-        connectionData.removeDatabase(dbConnectionName+"_thread");
-    }
-    db = QSqlDatabase::addDatabase("QMYSQL",dbConnectionName+"_thread");
-    db.setHostName(connectionData.hostName());
-    db.setDatabaseName(connectionData.databaseName());
-    db.setPort(connectionData.port());
-    db.setUserName(connectionData.userName());
-    db.setPassword(connectionData.password());
-    db.open();
-    lastErr = db.lastError();
+    primaryQuery = forQuery.value("primaryQuery");
+    filter = forQuery.value("filter");
+    tabName = forQuery.value("tabName");
+    aliasTable = forQuery.value("aliasTable");
+    colId = forQuery.value("columnId").toInt();
+    colParent_Id = forQuery.value("columnParent_Id").toInt();
 }
 
-DeviceThreadWorker::~DeviceThreadWorker()
+DeviceModelWorker::~DeviceModelWorker()
 {
-    if(db.isOpen())
-        db.close();
+
 }
 
-TreeItem* DeviceThreadWorker::search(TreeItem* note, int id, int colId)
+void DeviceModelWorker::setFilter(const QString &queryFilter)
+{
+    filter = queryFilter;
+}
+
+TreeItem* DeviceModelWorker::search(TreeItem* note, int id, int colId)
 {
     int i = 0;
     TreeItem* childs;
@@ -46,7 +46,7 @@ TreeItem* DeviceThreadWorker::search(TreeItem* note, int id, int colId)
     return note;
 }
 
-TreeItem* DeviceThreadWorker::searchInRootNode(TreeItem* node, int id, int colId)
+TreeItem* DeviceModelWorker::searchInRootNode(TreeItem* node, int id, int colId)
 {
     int i = 0;
     TreeItem* childs;
@@ -59,36 +59,26 @@ TreeItem* DeviceThreadWorker::searchInRootNode(TreeItem* node, int id, int colId
     return node;
 }
 
-void DeviceThreadWorker::createDeviceTree(const QMap<QString,QString> &forQuery, const QVector<QVariant> &rootData)
+void DeviceModelWorker::process()
 {
-    TreeItem *all = 0;
-    if(lastErr.type() != QSqlError::NoError){
-        emit lastErrors(lastErr);
-        emit result(all);
+    QSqlDatabase::removeDatabase(m_credentials.value("connectionName").toString() + "_devicemodelworker_connect");
+    QSqlDatabase db = QSqlDatabase::addDatabase(m_credentials.value("driver").toString(),m_credentials.value("connectionName").toString() + "_devicemodelworker_connect");
+    db.setHostName(m_credentials.value("host").toString());
+    db.setPort(m_credentials.value("port").toInt());
+    db.setUserName(m_credentials.value("login").toString());
+    db.setPassword(m_credentials.value("pass").toString());
+    db.setDatabaseName(m_credentials.value("databaseName").toString());
+    if(!db.open()){
+        emit error(tr("Не удалось подключиться к серверу mysql: %1").arg(db.lastError().text()));
+        emit finished();
         return;
     }
-    if(!db.isOpen()){
-        if(!db.open()){
-            lastErr = db.lastError();
-            if(lastErr.type() != QSqlError::NoError)
-                emit lastErrors(lastErr);
-            emit result(all);
-            return;
-        }
-    }
+
     QSqlQuery query(db);
     QSqlQuery minParentQuery(db);
     int minParent;
-    QString primaryQuery, filter, tabName, aliasTable;
+    TreeItem *all = new TreeItem(m_rootData);
 
-    int colId, colParent_Id;
-
-    primaryQuery = forQuery.value("primaryQuery");
-    filter = forQuery.value("filter");
-    tabName = forQuery.value("tabName");
-    aliasTable = forQuery.value("aliasTable");
-    colId = forQuery.value("columnId").toInt();
-    colParent_Id = forQuery.value("columnParent_Id").toInt();
     if(filter.isEmpty()){
         query.exec("BEGIN;");
         query.exec(QString("%1"
@@ -124,16 +114,22 @@ void DeviceThreadWorker::createDeviceTree(const QMap<QString,QString> &forQuery,
                             .arg(aliasTable));
     }
     if (query.lastError().type() != QSqlError::NoError){
-        emit lastErrors(query.lastError());
+        emit error(query.lastError().text());
         emit result(all);
+        emit finished();
         return;
     }
-    if (minParentQuery.lastError().type() != QSqlError::NoError)
-        qDebug()<<minParentQuery.lastError().text();
+    if (minParentQuery.lastError().type() != QSqlError::NoError){
+        emit error(minParentQuery.lastError().text());
+        emit result(all);
+        emit finished();
+        return;
+    }
+
     TreeItem *note;
     QList<QVariant> buffer;
     int f = 0, n = 0;
-    all = new TreeItem(rootData);
+
     if(query.size()>0){
         minParentQuery.next();
         minParent = minParentQuery.value(0).toInt();
@@ -179,4 +175,5 @@ void DeviceThreadWorker::createDeviceTree(const QMap<QString,QString> &forQuery,
         }
     }
     emit result(all);
+    emit finished();
 }
